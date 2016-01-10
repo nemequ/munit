@@ -136,6 +136,19 @@ extern "C" {
 #define munit_assert_cmp_uint64(a, op, b) \
   munit_assert_cmp_type(uint64_t, PRIu64, a, op, b)
 
+#define munit_assert_double_equal(a, b, precision) \
+  do { \
+    const double munit_tmp_a_ = (const double) (a); \
+    const double munit_tmp_b_ = (const double) (b); \
+    const double munit_tmp_diff_ = ((munit_tmp_a_ - munit_tmp_b_) < 0) ? \
+      -(munit_tmp_a_ - munit_tmp_b_) : \
+      (munit_tmp_a_ - munit_tmp_b_); \
+    if (MUNIT_UNLIKELY(munit_tmp_diff_ > 1e-##precision)) { \
+      munit_errorf("assertion failed: " #a " == " #b " (%0." #precision "g == %0." #precision "g)", \
+		   munit_tmp_a_, munit_tmp_b_); \
+    } \
+  } while (0)
+
 #include <string.h>
 #define munit_assert_string_equal(a, b) \
   do { \

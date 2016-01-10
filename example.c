@@ -37,6 +37,14 @@ static void test_compare (void* data) {
   double pi = 3.141592654;
   munit_assert_cmp_double(pi, ==, 3.141592654);
 
+  /* If you want to compare two doubles for equality, you might want
+   * to consider using munit_assert_double_equal.  It compares two
+   * doubles for equality within a precison of 1.0 x 10^-(precision).
+   * Note that precision (the third argument to the macro) needs to be
+   * fully evaluated to an integer by the preprocessor so µnit doesn't
+   * have to depend pow, which is often in libm not libc. */
+  munit_assert_double_equal(3.141592654, 3.141592653589793, 9);
+
   /* And munit_assert_string_equal/nequal */
   const char* foo = "bar";
   munit_assert_string_equal(foo, "bar");
