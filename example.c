@@ -85,6 +85,17 @@ void test_rand(MUNIT_UNUSED void* user_data) {
   random_int = munit_rand_int_range(-10, 10);
   munit_assert_cmp_int(random_int, >=, -10);
   munit_assert_cmp_int(random_int, <=, 10);
+
+  /* Of course, you want to be able to reproduce bugs discovered
+   * during testing, so every time the tests are run they print the
+   * random seed used.  When you want to reproduce a result, just put
+   * that random seed in the MUNIT_SEED environment variable; it even
+   * works on different platforms.
+   *
+   * If you want this to pass, use 0xdeadbeef as the random seed (and
+   * uncomment it): */
+  /* random_int = munit_rand_int(); */
+  /* munit_assert_cmp_int(random_int, ==, -1075473528); */
 }
 
 /* We'll get to these soon. */
