@@ -1,3 +1,13 @@
+/* Example file for using µnit.
+ *
+ * µnit is MIT-licensed, but for this file and this file alone:
+ *
+ * To the extent possible under law, the author(s) of this file have
+ * waived all copyright and related or neighboring rights to this
+ * work.  See <https://creativecommons.org/publicdomain/zero/1.0/> for
+ * details.
+ *********************************************************************/
+
 #include "munit.h"
 
 /* Tests are functions that return void, and take a single void*
