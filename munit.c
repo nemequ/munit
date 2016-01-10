@@ -4,6 +4,7 @@
 #include <time.h>
 #include <errno.h>
 #include <string.h>
+#include <stdlib.h>
 
 /* TODO: need fallbacks (especially for Windows). */
 #include <stdatomic.h>
@@ -221,7 +222,13 @@ munit_suite_run(const MunitSuite* suite, void* user_data) {
   {
     char* seed_str = getenv("MUNIT_SEED");
     if (seed_str != NULL) {
-      fprintf(stderr, "ENV SEED = %s\n", seed_str);
+      char* envptr = NULL;
+      unsigned long long ts = strtoull(seed_str, &envptr, 0);
+      if (*envptr != '\0' || ts > UINT32_MAX) {
+	fprintf(stderr, "Invalid seed specified.\n");
+	return false;
+      }
+      seed = (uint32_t) ts;
     } else {
       seed = munit_rand_make_seed();
     }
