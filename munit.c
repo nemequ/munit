@@ -140,7 +140,12 @@ munit_test_exec(const MunitTest* test, void* user_data, unsigned int iterations,
   fflush(MUNIT_OUTPUT_FILE);
   unsigned int i = 0;
   do {
-    test->test(user_data);
+    void* data = (test->setup == NULL) ? user_data : test->setup(user_data);
+
+    test->test(data);
+
+    if (test->tear_down != NULL)
+      test->tear_down(data);
   } while (++i < iterations);
 
   if (i == 1)

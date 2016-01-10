@@ -54,7 +54,7 @@ static void test_compare (void* data) {
 
   /* Lets verify that the data parameter is what we expected.  We'll
      get to where this comes from in a bit. */
-  munit_assert_string_equal(data, "µnit");
+  munit_assert_string_equal(data, "victory");
 }
 
 void test_rand(MUNIT_UNUSED void* user_data) {
@@ -87,6 +87,19 @@ void test_rand(MUNIT_UNUSED void* user_data) {
   munit_assert_cmp_int(random_int, <=, 10);
 }
 
+/* We'll get to these soon. */
+static void*
+test_compare_setup(void* user_data) {
+  munit_assert_string_equal(user_data, "µnit");
+  return strdup("victory");
+}
+
+static void
+test_compare_tear_down(void* fixture) {
+  munit_assert_string_equal(fixture, "victory");
+  free(fixture);
+}
+
 /* Creating a test suite is pretty simple.  First, you'll need an
  * array of tests: */
 static const MunitTest test_suite_tests[] = {
@@ -105,13 +118,13 @@ static const MunitTest test_suite_tests[] = {
      * and the return value from this callback will be passed to the
      * test function.
      *
-     * For our example we don't really need a fixture, so we'll just
-     * leave it empty.*/
-    NULL,
+     * For our example we don't really need a fixture, but lets
+     * provide one anyways. */
+    test_compare_setup,
     /* If you passed a callback for the fixture setup function, you
      * may want to pass a corresponding callback here to reverse the
      * operation. */
-    NULL,
+    test_compare_tear_down,
     /* Finally, there is a bitmask for options you can pass here.
      * It's currently empty, but we have plans!  You can provide
      * either MUNIT_TEST_OPTION_NONE or 0 here to use the defaults. */

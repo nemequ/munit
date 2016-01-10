@@ -187,7 +187,7 @@ void munit_rand_memory (size_t size, uint8_t buffer[MUNIT_ARRAY_PARAM(size)]);
 
 typedef void  (* MunitTestFunc)(void* user_data_or_fixture);
 typedef void* (* MunitTestSetup)(void* user_data);
-typedef void* (* MunitTestTearDown)(void* fixture);
+typedef void  (* MunitTestTearDown)(void* fixture);
 
 typedef enum {
   MUNIT_TEST_OPTION_NONE = 0,
