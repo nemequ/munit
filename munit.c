@@ -1,7 +1,11 @@
 #include <stdint.h>
+#include <stdbool.h>
 #include <limits.h>
 #include <time.h>
+#include <errno.h>
+#include <string.h>
 
+/* TODO: need fallbacks (especially for Windows). */
 #include <stdatomic.h>
 
 #include "munit.h"
@@ -133,13 +137,15 @@ munit_rand_double(void) {
 
 #define MUNIT_OUTPUT_FILE stdout
 
+/* This is the part that should be handled in the child process */
 static void
-munit_test_exec(const MunitTest* test, void* user_data, unsigned int iterations, uint32_t seed) {
-  munit_rand_seed(seed);
-  fprintf(MUNIT_OUTPUT_FILE, "%s: ", test->name);
-  fflush(MUNIT_OUTPUT_FILE);
+munit_test_child_exec(const MunitTest* test, void* user_data, unsigned int iterations, MUNIT_UNUSED MunitSuiteOptions options, uint32_t seed) {
+  if ((test->options & MUNIT_TEST_OPTION_SINGLE_ITERATION) != 0)
+    iterations = 1;
+
   unsigned int i = 0;
   do {
+    munit_rand_seed(seed);
     void* data = (test->setup == NULL) ? user_data : test->setup(user_data);
 
     test->test(data);
@@ -154,7 +160,61 @@ munit_test_exec(const MunitTest* test, void* user_data, unsigned int iterations,
     fprintf(MUNIT_OUTPUT_FILE, "success (%u iterations).\n", iterations);
 }
 
-void
+#if !defined(_WIN32)
+#  include <unistd.h> /* for fork() */
+#endif
+
+static bool
+munit_test_exec(const MunitTest* test, void* user_data, unsigned int iterations, MunitSuiteOptions options, uint32_t seed) {
+  bool success;
+  const bool fork_requested = (((options & MUNIT_SUITE_OPTION_NO_FORK) == 0) && ((test->options & MUNIT_TEST_OPTION_NO_FORK) == 0));
+#if !defined(_WIN32)
+  pid_t fork_pid;
+#endif
+
+  fprintf(MUNIT_OUTPUT_FILE, "%s: ", test->name);
+  fflush(MUNIT_OUTPUT_FILE);
+
+  if (fork_requested) {
+#if !defined(_WIN32)
+    int pipefd[2];
+    if (pipe(pipefd) != 0) {
+      fprintf(MUNIT_OUTPUT_FILE, "unable to create pipe: %s\n", strerror(errno));
+      return false;
+    }
+
+    fork_pid = fork ();
+    if (fork_pid == 0) {
+      close(pipefd[0]);
+      munit_test_child_exec(test, user_data, iterations, options, seed);
+      success = true;
+      write(pipefd[1], &success, sizeof(bool));
+      exit(EXIT_SUCCESS);
+    } else if (fork_pid == -1) {
+      fprintf(MUNIT_OUTPUT_FILE, "unable to fork()\n");
+      close(pipefd[0]);
+      close(pipefd[1]);
+      success = false;
+    } else {
+      close(pipefd[1]);
+      size_t bytes_read = read(pipefd[0], &success, sizeof(bool));
+      if (bytes_read != sizeof(bool) || !success) {
+	success = false;
+	fputc('\n', MUNIT_OUTPUT_FILE);
+      }
+    }
+#else
+    /* We don't (yet?) support forking on Windows */
+    munit_test_child_exec(test, user_data, iterations, options, seed);
+#endif
+  } else {
+    munit_test_child_exec(test, user_data, iterations, options, seed);
+  }
+
+  return success;
+}
+
+bool
 munit_suite_run(const MunitSuite* suite, void* user_data) {
   uint32_t seed;
 
@@ -170,11 +230,17 @@ munit_suite_run(const MunitSuite* suite, void* user_data) {
   fflush(stderr);
   fprintf(MUNIT_OUTPUT_FILE, "Running test suite with seed 0x%08" PRIx32 "...\n", seed);
 
-  size_t test_num = 0;
+  unsigned int test_num = 0;
+  unsigned int successful = 0;
   for (const MunitTest* test = suite->tests ;
        test->test != NULL ;
        test++) {
-    munit_test_exec(test, user_data, suite->iterations, seed);
+    successful += munit_test_exec(test, user_data, suite->iterations, suite->options, seed) ? 1 : 0;
     test_num++;
   }
+
+  fprintf(MUNIT_OUTPUT_FILE, "%d of %d (%g%%) tests successful.\n",
+	  successful, test_num, (((double) successful) / ((double) test_num)) * 100);
+
+  return successful == test_num;
 }

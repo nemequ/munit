@@ -193,7 +193,7 @@ typedef enum {
   MUNIT_TEST_OPTION_NONE = 0,
   MUNIT_TEST_OPTION_SINGLE_ITERATION = 1 << 0,
   MUNIT_TEST_OPTION_NO_RESET = 1 << 1,
-  /* MUNIT_TEST_OPTION_NO_FORK = 1 << 2, */
+  MUNIT_TEST_OPTION_NO_FORK = 1 << 2,
   /* MUNIT_TEST_OPTION_NO_TIME = 1 << 3, */
 } MunitTestOptions;
 
@@ -207,7 +207,7 @@ typedef struct {
 
 typedef enum {
   MUNIT_SUITE_OPTION_NONE = 0,
-  /* MUNIT_SUITE_OPTION_NO_FORK = 1 << 1, */
+  MUNIT_SUITE_OPTION_NO_FORK = 1 << 1,
   /* MUNIT_SUITE_OPTION_NO_TIME = 1 << 2, */
 } MunitSuiteOptions;
 
@@ -217,8 +217,8 @@ typedef struct {
   MunitTestOptions options;
 } MunitSuite;
 
-void munit_suite_run_test(const MunitSuite* suite, const char* test, void* user_data);
-void munit_suite_run(const MunitSuite* suite, void* user_data);
+_Bool munit_suite_run_test(const MunitSuite* suite, const char* test, void* user_data);
+_Bool munit_suite_run(const MunitSuite* suite, void* user_data);
 
 #if defined(__cplusplus)
 }

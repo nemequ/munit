@@ -15,6 +15,9 @@ Features µnit currently includes include:
  * Reproducible cross-platform random number generation, including
    support for supplying a seed via CLI.
  * Handy assertion macros which make for nice error messages.
+ * Fixtures.
+ * Forking (except on Windows; patches to add Windows support will be
+   gratefully accepted).
 
 Features it will not include (you can use another framework, such as
 [cmocka](https://cmocka.org/),
@@ -23,16 +26,10 @@ Features it will not include (you can use another framework, such as
 
  * Mocking
 
-Features µnit doesn't currently include, but I'm willing to talk
-about, include:
-
- * Forking
-
 Features µnit does not currently include, but some day may include
 (a.k.a., if you file a PR…), include:
 
  * [TAP](http://testanything.org/) support
- * Fixtures
  * Timing (micro-benchmarking).  Code may be stolen from
    [here](https://github.com/quixdb/squash-benchmark/blob/master/timer.c).
 
@@ -53,6 +50,6 @@ See [example.c](https://github.com/nemequ/munit/blob/master/example.c).
  * Why another unit testing framework? — I couldn't find anything that
    met all my requirements:
    * Easy to integrate without adding an external dependency.
-   * Works well on Windows and good operating systems.
+   * Works on both Windows and good operating systems.
    * Included support for pseudo-random numbers.
    * Permissively licensed.

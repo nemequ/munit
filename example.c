@@ -146,22 +146,22 @@ static const MunitSuite test_suite = {
   /* An interesting feature of µnit is that it supports automatically
    * running multiple iterations of the tests.  This is usually only
    * interesting if you make use of the PRNG to randomize your tests
-   * cases a bit. */
+   * cases a bit, or if you are doing performance testing and want to
+   * average multiple runs. */
   1,
   /* Just like MUNIT_TEST_OPTION_NONE, you can provide
    * MUNIT_SUITE_OPTION_NONE or 0 to use the default settings. */
   MUNIT_SUITE_OPTION_NONE
 };
 
-/* This is only necessary for EXIT_SUCCESS, which you *should* be
- * using but probably aren't and, therefore, probably don't need. */
+/* This is only necessary for EXIT_SUCCESS/EXIT_FAILURE, which you
+ * *should* be using but probably aren't and, therefore, probably
+ * don't need. */
 #include <stdlib.h>
 
 int main(void) {
   /* Finally, we'll actually run our test suite!  That second argument
    * is the user_data parameter which will be passed either to the
    * test or (if provided) the fixture setup function. */
-  munit_suite_run(&test_suite, "µnit");
-
-  return EXIT_SUCCESS;
+  return munit_suite_run(&test_suite, "µnit") ? EXIT_SUCCESS : EXIT_FAILURE;
 }
