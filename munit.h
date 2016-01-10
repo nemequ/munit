@@ -117,6 +117,8 @@ extern "C" {
   munit_assert_cmp_type(float, "f", a, op, b)
 #define munit_assert_cmp_double(a, op, b) \
   munit_assert_cmp_type(double, "g", a, op, b)
+#define munit_assert_cmp_ptr(a, op, b) \
+  munit_assert_cmp_type(void*, "p", a, op, b)
 
 #include <inttypes.h>
 #define munit_assert_cmp_int8(a, op, b) \
@@ -183,6 +185,13 @@ extern "C" {
       } \
     } \
   } while (0)
+
+#define munit_assert_ptr_equal(a, b) \
+  munit_assert_cmp_ptr(a, ==, b)
+#define munit_assert_null(ptr) \
+  munit_assert_cmp_ptr(ptr, ==, NULL)
+#define munit_assert_non_null(ptr) \
+  munit_assert_cmp_ptr(ptr, !=, NULL)
 
 /*** Random number generation ***/
 

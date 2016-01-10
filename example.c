@@ -69,8 +69,16 @@ static void test_compare (void* data) {
    * of the first differing byte. */
   munit_assert_memory_equal(7, stewardesses, "steward");
 
+  /* There are equal/nequal macros for pointers, too: */
+  const char* most_fun_word_to_type = stewardesses;
+  munit_assert_ptr_equal(most_fun_word_to_type, stewardesses);
+
+  /* And null/non_null */
+  munit_assert_null(NULL);
+  munit_assert_non_null(most_fun_word_to_type);
+
   /* Lets verify that the data parameter is what we expected.  We'll
-     see where this comes from in a bit. */
+   * see where this comes from in a bit. */
   munit_assert_string_equal(data, "victory");
 }
 
