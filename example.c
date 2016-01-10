@@ -1,6 +1,6 @@
 /* Want to see what these look like when they all fail (i.e., don't
    abort() on failure)?  Uncomment this: */
-#define MUNIT_NO_ABORT_ON_FAILURE
+/* #define MUNIT_NO_ABORT_ON_FAILURE */
 
 #include "munit.h"
 
@@ -35,8 +35,6 @@ int main(void)
   for (int x = 0; x < 16 ; x++) {
     fprintf (stderr, "Random[%2d]: %d / %g\n", x, munit_rand_int_range (0, INT_MAX), munit_rand_double());
   }
-
-  munit_assert_cmp(4, >=, 5)
 
   return 0;
 }

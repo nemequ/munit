@@ -33,7 +33,7 @@ Features µnit does not currently include, but some day may include
 
  * [TAP](http://testanything.org/) support
  * Fixtures
- * Timing (micro-benchmarking).  Cdoe may be stolen from
+ * Timing (micro-benchmarking).  Code may be stolen from
    [here](https://github.com/quixdb/squash-benchmark/blob/master/timer.c).
 
 ## TITYMBW

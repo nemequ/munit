@@ -178,16 +178,45 @@ int munit_rand_int_range(int min, int max);
 double munit_rand_double(void);
 void munit_rand_memory (size_t size, uint8_t buffer[MUNIT_ARRAY_PARAM(size)]);
 
-typedef void  (* MunitTestFunc)(void* data);
+/* If a test implements a setup function then the value that function
+ * returns is passed to the user_data_or_fixture parameter.  If the
+ * setup function is NULL then it will be the user_data passed to the
+ * function used to run the test (likely munit_suite_run). */
+
+typedef void  (* MunitTestFunc)(void* user_data_or_fixture);
 typedef void* (* MunitTestSetup)(void* user_data);
 typedef void* (* MunitTestTearDown)(void* fixture);
 
+typedef enum {
+  MUNIT_TEST_OPTION_NONE = 0,
+  MUNIT_TEST_OPTION_SINGLE_ITERATION = 1 << 0,
+  MUNIT_TEST_OPTION_NO_RESET = 1 << 1,
+  /* MUNIT_TEST_OPTION_NO_FORK = 1 << 2, */
+  /* MUNIT_TEST_OPTION_NO_TIME = 1 << 3, */
+} MunitTestOptions;
+
 typedef struct {
-  const char* name;
-  MunitTestFunc test;
-  MunitTestSetup setup;
+  const char*       name;
+  MunitTestFunc     test;
+  MunitTestSetup    setup;
   MunitTestTearDown tear_down;
+  MunitTestOptions  options;
 } MunitTest;
+
+typedef enum {
+  MUNIT_SUITE_OPTION_NONE = 0,
+  /* MUNIT_SUITE_OPTION_NO_FORK = 1 << 1, */
+  /* MUNIT_SUITE_OPTION_NO_TIME = 1 << 2, */
+} MunitSuiteOptions;
+
+typedef struct {
+  MunitTest*       tests;
+  unsigned int     iterations;
+  MunitTestOptions options;
+} MunitSuite;
+
+void munit_suite_run_test(MunitSuite* suite, const char* test, void* user_data);
+void munit_suite_run(MunitSuite* suite, void* user_data);
 
 #if defined(__cplusplus)
 }
