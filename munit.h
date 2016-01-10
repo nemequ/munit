@@ -72,7 +72,7 @@ extern "C" {
     } \
   } while (0)
 #define munit_assert_true(expr) \
-  munit_assert (expr)
+  munit_assert (!!(expr))
 #define munit_assert_false(expr) \
   munit_assert (!(expr))
 

@@ -3,10 +3,10 @@
 /* Tests are functions that return void, and take a single void*
  * parameter.  We'll get to what that parameter is later. */
 static void test_compare (void* data) {
-  /* This is probably obvious, but lets start with the basics. */
+  /* Let'ss start with the basics. */
   munit_assert(0 != 1);
 
-  /* There is also the more verbose, but slightly more descriptive
+  /* There is also the more verbose, though slightly more descriptive
      munit_assert_true/false: */
   munit_assert_false(0);
 
@@ -16,14 +16,14 @@ static void test_compare (void* data) {
   /* munit_error("FAIL"); */
   /* munit_errorf("Goodbye, cruel %s", "world"); */
 
-  /* There are macros for comparing lots of types.  Sure, in this case
-   * you could just assert('a' == 'a'), but wait! */
+  /* There are macros for comparing lots of types. */
   munit_assert_cmp_char('a', ==, 'a');
 
-  /* If you did that here, a failed assertion would just say something
-   * like "assertion failed: val_uchar == 'b'".  µnit will actually
-   * tell you the values in addition, so a failure here would result
-   * in "assertion failed: val_uchar == 'b' ('X' == 'b')." */
+  /* Sure, you could just assert('a' == 'a'), but if you did that, a
+   * failed assertion would just say something like "assertion failed:
+   * val_uchar == 'b'".  µnit will tell you the actual values, so a
+   * failure here would result in something like "assertion failed:
+   * val_uchar == 'b' ('X' == 'b')." */
   const unsigned char val_uchar = 'b';
   munit_assert_cmp_uchar(val_uchar, ==, 'b');
 
@@ -32,6 +32,14 @@ static void test_compare (void* data) {
    * int8/16/32/64_t, as well as the unsigned versions of them all. */
   const short val_short = 1729;
   munit_assert_cmp_short(42, <, val_short);
+
+  /* There is also support for size_t.
+   *
+   * The longest word in English without repeating any letters is
+   * "uncopyrightables", which has uncopyrightable (and
+   * dermatoglyphics, which is the study of fingerprints) beat by a
+   * character */
+  munit_assert_cmp_size(strlen("uncopyrightables"), >, strlen("dermatoglyphics"));
 
   /* Of course there is also support for doubles and floats. */
   double pi = 3.141592654;
@@ -45,23 +53,24 @@ static void test_compare (void* data) {
    * have to depend pow, which is often in libm not libc. */
   munit_assert_double_equal(3.141592654, 3.141592653589793, 9);
 
-  /* And munit_assert_string_equal/nequal */
-  const char* foo = "bar";
-  munit_assert_string_equal(foo, "bar");
-
-  /* A personal favorite which is fantastic if you're working with
-   * binary data: */
-  munit_assert_memory_equal(7, "stewardesses", "steward");
-
-  /* "stewardesses" is the longest word you can type on a QWERTY
+  /* And if you want to check strings for equality (or inequality),
+   * there is munit_assert_string_equal/nequal.
+   *
+   * "stewardesses" is the longest word you can type on a QWERTY
    * keyboard with only one hand, which makes it loads of fun to type.
-   * For the longest word in English without repeating any letters,
-   * uncopyrightables has dermatoglyphics (and uncopyrightable) beat
-   * by a character.. */
-  munit_assert_cmp_size(strlen("uncopyrightables"), >, strlen("dermatoglyphics"));
+   * If I'm going to have to type a string repeatedly, let's make it a
+   * good one! */
+  const char* stewardesses = "stewardesses";
+  munit_assert_string_equal(stewardesses, "stewardesses");
+
+  /* A personal favorite macro which is fantastic if you're working
+   * with binary data, is the one which naïvely checks two blobs of
+   * memory for equality.  If this fails it will tell you the offset
+   * of the first differing byte. */
+  munit_assert_memory_equal(7, stewardesses, "steward");
 
   /* Lets verify that the data parameter is what we expected.  We'll
-     get to where this comes from in a bit. */
+     see where this comes from in a bit. */
   munit_assert_string_equal(data, "victory");
 }
 
@@ -90,9 +99,9 @@ void test_rand(MUNIT_UNUSED void* user_data) {
   munit_assert_cmp_double(random_dbl, <=, 1.0);
 
   /* If you need an integer in a given range */
-  random_int = munit_rand_int_range(-10, 10);
-  munit_assert_cmp_int(random_int, >=, -10);
-  munit_assert_cmp_int(random_int, <=, 10);
+  random_int = munit_rand_int_range(0, 255);
+  munit_assert_cmp_int(random_int, >=, 0);
+  munit_assert_cmp_int(random_int, <=, 255);
 
   /* Of course, you want to be able to reproduce bugs discovered
    * during testing, so every time the tests are run they print the
@@ -106,13 +115,18 @@ void test_rand(MUNIT_UNUSED void* user_data) {
   /* munit_assert_cmp_int(random_int, ==, -1075473528); */
 }
 
-/* We'll get to these soon. */
+/* The setup function, if you provide one, for a test will be run
+ * before the test, and the return value will be passed as the sole
+ * parameter to the test function. */
 static void*
 test_compare_setup(void* user_data) {
   munit_assert_string_equal(user_data, "µnit");
   return strdup("victory");
 }
 
+/* To clean up after a test, you can use a tear down function.  The
+ * fixture argument is the value returned by the setup function
+ * above. */
 static void
 test_compare_tear_down(void* fixture) {
   munit_assert_string_equal(fixture, "victory");
@@ -125,7 +139,7 @@ static const MunitTest test_suite_tests[] = {
   {
     /* The name is just a unique human-readable way to identify the
      * test. You can use it to run a specific test if you want, but
-     * usually it's purely decorative. */
+     * usually it's mostly decorative. */
     "/example/compare",
     /* You probably won't be surprised to learn that the tests are
      * functions. */
@@ -147,7 +161,8 @@ static const MunitTest test_suite_tests[] = {
     /* Finally, there is a bitmask for options you can pass here.
      * It's currently empty, but we have plans!  You can provide
      * either MUNIT_TEST_OPTION_NONE or 0 here to use the defaults. */
-    MUNIT_TEST_OPTION_NONE },
+    MUNIT_TEST_OPTION_NONE
+  },
   /* Usually this is written in a much more compact format; all these
    * comments kind of ruin that, though.  Here is how you'll usually
    * see entries written: */
@@ -173,9 +188,10 @@ static const MunitSuite test_suite = {
   MUNIT_SUITE_OPTION_NONE
 };
 
-/* This is only necessary for EXIT_SUCCESS/EXIT_FAILURE, which you
- * *should* be using but probably aren't and, therefore, probably
- * don't need. */
+/* This is only necessary for EXIT_SUCCESS and EXIT_FAILURE, which you
+ * *should* be using but probably aren't (no, zero and non-zero don't
+ * always mean success and failure).  I guess my point is that nothing
+ * about µnit requires it. */
 #include <stdlib.h>
 
 int main(void) {
