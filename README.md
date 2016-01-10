@@ -29,12 +29,16 @@ about, include:
  * Forking
 
 Features µnit does not currently include, but some day may include
-(a.k.a., if you file a PR), include:
+(a.k.a., if you file a PR…), include:
 
  * [TAP](http://testanything.org/) support
  * Fixtures
  * Timing (micro-benchmarking).  Code may be stolen from
    [here](https://github.com/quixdb/squash-benchmark/blob/master/timer.c).
+
+## Documentation
+
+See [example.c](https://github.com/nemequ/munit/blob/master/example.c).
 
 ## TITYMBW
 
@@ -42,7 +46,7 @@ Features µnit does not currently include, but some day may include
    writing this before I actually release the software, so "Frequently
    Asked Questions" isn't quite right…
  * WTF is "WTF"? —
-   [World Taekwondo Federation](http://www.worldtaekwondofederation.net/).
+   [World Taekwondo Federation](http://www.wtf.org/).
  * Who uses it? — You can
    [search GitHub](https://github.com/search?l=c&q=munit_suite_run&type=Code&utf8=%E2%9C%93).
    Or use another code search engine, or Google.

@@ -31,9 +31,11 @@ extern "C" {
 #if defined(__GNUC__)
 #  define MUNIT_LIKELY(expr) (__builtin_expect ((expr), 1))
 #  define MUNIT_UNLIKELY(expr) (__builtin_expect ((expr), 0))
+#  define MUNIT_UNUSED __attribute__((__unused__))
 #else
 #  define MUNIT_LIKELY(expr) (expr)
 #  define MUNIT_UNLIKELY(expr) (expr)
+#  define MUNIT_UNUSED
 #endif
 
 #if defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L)
@@ -210,13 +212,13 @@ typedef enum {
 } MunitSuiteOptions;
 
 typedef struct {
-  MunitTest*       tests;
+  const MunitTest* tests;
   unsigned int     iterations;
   MunitTestOptions options;
 } MunitSuite;
 
-void munit_suite_run_test(MunitSuite* suite, const char* test, void* user_data);
-void munit_suite_run(MunitSuite* suite, void* user_data);
+void munit_suite_run_test(const MunitSuite* suite, const char* test, void* user_data);
+void munit_suite_run(const MunitSuite* suite, void* user_data);
 
 #if defined(__cplusplus)
 }
