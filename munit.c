@@ -116,7 +116,7 @@ static ATOMIC_UINT32_T munit_prng_state = ATOMIC_UINT32_INIT(42);
 #elif defined(_WIN32) /* Untested */
 #  define munit_atomic_store(dest,value)          do { *dest = value; } while (0)
 #  define munit_atomic_load(src)                  (*src)
-#  define munit_atomic_cas(dest, expected, value) InterlockedCompareExchange(dest, value, expected)
+#  define munit_atomic_cas(dest, expected, value) InterlockedCompareExchange(dest, value, *expected)
 #else
 #  error No atomic implementation
 #endif
