@@ -132,7 +132,7 @@ extern "C" {
 #define munit_assert_cmp_double(a, op, b) \
   munit_assert_cmp_type(double, "g", a, op, b)
 #define munit_assert_cmp_ptr(a, op, b) \
-  munit_assert_cmp_type(void*, "p", a, op, b)
+  munit_assert_cmp_type(const void*, "p", a, op, b)
 
 #include <inttypes.h>
 #define munit_assert_cmp_int8(a, op, b) \
