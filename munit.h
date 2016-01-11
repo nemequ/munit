@@ -234,9 +234,9 @@ typedef enum {
 } MunitSuiteOptions;
 
 typedef struct {
-  const MunitTest* tests;
-  unsigned int     iterations;
-  MunitTestOptions options;
+  const MunitTest*  tests;
+  unsigned int      iterations;
+  MunitSuiteOptions options;
 } MunitSuite;
 
 _Bool munit_suite_run_test(const MunitSuite* suite, const char* test, void* user_data);

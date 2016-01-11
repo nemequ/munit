@@ -187,7 +187,7 @@ static const MunitTest test_suite_tests[] = {
   { "/example/rand", test_rand, NULL, NULL, 0 },
   /* To tell the test runner when the array is over, just add a NULL
    * entry at the end. */
-  { NULL, }
+  { NULL, NULL, NULL, NULL, 0 }
 };
 
 /* Now we'll actually declare the test suite.  You could do this in

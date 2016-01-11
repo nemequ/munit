@@ -318,8 +318,8 @@ munit_test_child_exec(const MunitTest* test, void* user_data, unsigned int itera
 
   MunitWallClock wall_clock_begin, wall_clock_end;
   MunitCpuClock cpu_clock_begin, cpu_clock_end;
-  double elapsed_wall;
-  double elapsed_cpu;
+  double elapsed_wall = 0.0;
+  double elapsed_cpu = 0.0;
   unsigned int i = 0;
   do {
     munit_rand_seed(seed);
@@ -348,7 +348,7 @@ munit_test_child_exec(const MunitTest* test, void* user_data, unsigned int itera
 
 static bool
 munit_test_exec(const MunitTest* test, void* user_data, unsigned int iterations, MunitSuiteOptions options, uint32_t seed) {
-  bool success;
+  bool success = false;
   const bool fork_requested = (((options & MUNIT_SUITE_OPTION_NO_FORK) == 0) && ((test->options & MUNIT_TEST_OPTION_NO_FORK) == 0));
 #if !defined(_WIN32)
   pid_t fork_pid;
@@ -391,6 +391,7 @@ munit_test_exec(const MunitTest* test, void* user_data, unsigned int iterations,
 #endif
   } else {
     munit_test_child_exec(test, user_data, iterations, options, seed);
+    success = true;
   }
 
   return success;

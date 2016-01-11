@@ -1,0 +1,31 @@
+language: c
+sudo: required
+dist: trusty
+os:
+  - linux
+branches:
+  except:
+    - /^(wip\/)?(msvc|windows)(\-.+)?$/
+env:
+  matrix:
+    - COMPILER=gcc-5 CFLAGS="-fsanitize=address -fsanitize=undefined"
+    - COMPILER=clang-3.7 CFLAGS="-fsanitize=address -fsanitize=undefined"
+    # Older compilers
+    - COMPILER=gcc-4.9 CFLAGS="-fsanitize=address -fsanitize=undefined"
+    - COMPILER=clang-3.6 CFLAGS="-fsanitize=address -fsanitize=undefined"
+
+    # No stdatomic.h
+    # - COMPILER=gcc-4.8 CFLAGS="-fsanitize=address"
+    # - COMPILER=gcc-4.7
+    # - COMPILER=gcc-4.6
+    # - COMPILER=gcc-4.4
+    # - COMPILER=clang-3.5 CFLAGS="-fsanitize=address -fsanitize=undefined"
+    # - COMPILER=clang-3.4 CFLAGS="-fsanitize=address -fsanitize=undefined"
+  global:
+    - GLOBAL_CFLAGS="-g -fno-omit-frame-pointer -Wall -Wextra -Werror"
+before_install:
+ - ./.travis-install-compiler.sh
+script:
+ - make CC="${COMPILER}" CFLAGS="$GLOBAL_CFLAGS $CFLAGS"
+notifications:
+  email: false
