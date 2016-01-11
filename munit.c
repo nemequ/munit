@@ -368,7 +368,7 @@ munit_wall_clock_get_elapsed(MunitWallClock* start, MunitWallClock* end) {
     (double) (end->tv_sec - start->tv_sec) +
     (((double) (end->tv_usec - start->tv_usec)) / 1000000);
 #elif MUNIT_WALL_TIME_METHOD == MUNIT_WALL_TIME_METHOD_MACH_ABSOLUTE_TIME
-  static mach_timebase_info_data_t timebase_info = { 0, };
+  static mach_timebase_info_data_t timebase_info = { 0, 0 };
   if (timebase_info.denom == 0)
     (void) mach_timebase_info(&timebase_info);
 
