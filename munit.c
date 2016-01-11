@@ -281,9 +281,9 @@ typedef struct timespec MunitWallClock;
 typedef struct timeval MunitWallClock;
 #elif MUNIT_WALL_TIME_METHOD == MUNIT_WALL_TIME_METHOD_GETTICKCOUNT
 #if _WIN32_WINNT >= 0x0600
-typedef DWORD MunitWallClock;
-#else
 typedef ULONGLONG MunitWallClock;
+#else
+typedef DWORD MunitWallClock;
 #endif /* _WIN32_WINNT >= 0x0600 */
 #elif MUNIT_WALL_TIME_METHOD == MUNIT_WALL_TIME_METHOD_MACH_ABSOLUTE_TIME
 #include <mach/mach.h>
