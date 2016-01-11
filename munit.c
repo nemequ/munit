@@ -74,7 +74,6 @@
 
 #if defined(__STDC_VERSION__) && (__STDC__VERSION__ >= 201112L) && !defined(__STDC_NO_ATOMICS__)
 #  define HAVE_STDATOMIC
-#error huh
 #elif defined(__clang__)
 #  if __has_extension(c_atomic)
 #    define HAVE_CLANG_ATOMICS
