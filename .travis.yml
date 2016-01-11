@@ -19,11 +19,16 @@ env:
     - COMPILER=gcc-4.4
     - COMPILER=clang-3.5 CFLAGS="-fsanitize=address -fsanitize=undefined"
     - COMPILER=clang-3.4 CFLAGS="-fsanitize=address -fsanitize=undefined"
+    - COMPILER=x86_64-w64-mingw32-gcc EXTENSION=".exe"
+    - COMPILER=i686-w64-mingw32-gcc EXTENSION=".exe"
   global:
     - GLOBAL_CFLAGS="-std=c99 -g -fno-omit-frame-pointer -Wall -Wextra -Werror"
 before_install:
  - ./.travis-install-compiler.sh
 script:
- - make CC="${COMPILER}" CFLAGS="$GLOBAL_CFLAGS $CFLAGS" && make test
+ - make CC="${COMPILER}" CFLAGS="$GLOBAL_CFLAGS $CFLAGS" EXTENSION="$EXTENSION"
+ # Installing Wine wants to pull in the graphical stack, so we can't
+ # run the test for mingw.
+ - if [ x"$EXTENSION" = "x" ]; then make test; fi
 # notifications:
 #   email: false

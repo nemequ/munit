@@ -53,6 +53,8 @@
 
 #if !defined(_WIN32)
 #  include <unistd.h>
+#else
+#  include <windows.h>
 #endif
 
 #include "munit.h"
@@ -280,9 +282,9 @@ munit_wall_clock_get_time(MunitWallClock* clock) {
   }
 #elif MUNIT_TIMER_METHOD == MUNIT_TIMER_METHOD_GETPROCESSTIMES
   #if _WIN32_WINNT >= 0x0600
-    timer->start_wall = GetTickCount64 ();
+    *clock = GetTickCount64 ();
   #else
-    timer->start_wall = GetTickCount ();
+    *clock = GetTickCount ();
   #endif
 #endif
 }
@@ -343,15 +345,15 @@ munit_cpu_clock_get_elapsed(MunitCpuClock* start, MunitCpuClock* end) {
 #elif MUNIT_TIMER_METHOD == MUNIT_TIMER_METHOD_GETPROCESSTIMES
   ULONGLONG start_cpu, end_cpu;
 
-  start_cpu   = timer->start_cpu.dwHighDateTime;
+  start_cpu   = start->dwHighDateTime;
   start_cpu <<= sizeof (DWORD) * 8;
-  start_cpu  |= timer->start_cpu.dwLowDateTime;
+  start_cpu  |= start->dwLowDateTime;
 
-  end_cpu   = timer->end_cpu.dwHighDateTime;
+  end_cpu   = end->dwHighDateTime;
   end_cpu <<= sizeof (DWORD) * 8;
-  end_cpu  |= timer->end_cpu.dwLowDateTime;
+  end_cpu  |= end->dwLowDateTime;
 
-  timer->elapsed_cpu += ((double) (end_cpu - start_cpu)) / 10000000;
+  return ((double) (end_cpu - start_cpu)) / 10000000;
 #endif
 }
 
@@ -396,9 +398,11 @@ munit_test_child_exec(const MunitTest* test, void* user_data, unsigned int itera
 static bool
 munit_test_exec(const MunitTest* test, void* user_data, unsigned int iterations, MunitSuiteOptions options, uint32_t seed) {
   bool success = false;
-  const bool fork_requested = (((options & MUNIT_SUITE_OPTION_NO_FORK) == 0) && ((test->options & MUNIT_TEST_OPTION_NO_FORK) == 0));
 #if !defined(_WIN32)
+  const bool fork_requested = (((options & MUNIT_SUITE_OPTION_NO_FORK) == 0) && ((test->options & MUNIT_TEST_OPTION_NO_FORK) == 0));
   pid_t fork_pid;
+#else
+  const bool fork_requested = false;
 #endif
 
   fprintf(MUNIT_OUTPUT_FILE, "%s: ", test->name);

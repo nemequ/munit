@@ -44,6 +44,20 @@ extern "C" {
 #  define MUNIT_ARRAY_PARAM(name)
 #endif
 
+#if !defined(_WIN32)
+#  define MUNIT_SIZE_MODIFIER "z"
+#  define MUNIT_CHAR_MODIFIER "hh"
+#  define MUNIT_SHORT_MODIFIER "h"
+#else
+#  if defined(_M_X64) || defined(__amd64__)
+#    define MUNIT_SIZE_MODIFIER "I64"
+#  else
+#    define MUNIT_SIZE_MODIFIER ""
+#  endif
+#  define MUNIT_CHAR_MODIFIER ""
+#  define MUNIT_SHORT_MODIFIER ""
+#endif
+
 #if !defined(munit_errorf)
 #  include <stdio.h> /* For fprintf */
 #  if !defined(MUNIT_NO_ABORT_ON_FAILURE)
@@ -90,13 +104,13 @@ extern "C" {
   munit_assert_cmp_type_full("", "", T, fmt, a, op, b)
 
 #define munit_assert_cmp_char(a, op, b) \
-  munit_assert_cmp_type_full("'\\x", "'", char, "02hhx", a, op, b)
+  munit_assert_cmp_type_full("'\\x", "'", char, "02" MUNIT_CHAR_MODIFIER "x", a, op, b)
 #define munit_assert_cmp_uchar(a, op, b) \
-  munit_assert_cmp_type_full("'\\x", "'", unsigned char, "02hhx", a, op, b)
+  munit_assert_cmp_type_full("'\\x", "'", unsigned char, "02" MUNIT_CHAR_MODIFIER "x", a, op, b)
 #define munit_assert_cmp_short(a, op, b) \
-  munit_assert_cmp_type(short, "hd", a, op, b)
+  munit_assert_cmp_type(short, MUNIT_SHORT_MODIFIER "d", a, op, b)
 #define munit_assert_cmp_ushort(a, op, b) \
-  munit_assert_cmp_type(unsigned short, "hu", a, op, b)
+  munit_assert_cmp_type(unsigned short, MUNIT_SHORT_MODIFIER "u", a, op, b)
 #define munit_assert_cmp_int(a, op, b) \
   munit_assert_cmp_type(int, "d", a, op, b)
 #define munit_assert_cmp_uint(a, op, b) \
@@ -111,7 +125,7 @@ extern "C" {
   munit_assert_cmp_type(unsigned long long int, "u", a, op, b)
 
 #define munit_assert_cmp_size(a, op, b) \
-  munit_assert_cmp_type(size_t, "zu", a, op, b)
+  munit_assert_cmp_type(size_t, MUNIT_SIZE_MODIFIER "u", a, op, b)
 
 #define munit_assert_cmp_float(a, op, b) \
   munit_assert_cmp_type(float, "f", a, op, b)
@@ -180,7 +194,7 @@ extern "C" {
     size_t pos; \
     for (pos = 0 ; pos < size_ ; pos++) { \
       if (MUNIT_UNLIKELY(munit_tmp_a_[pos] != munit_tmp_b_[pos])) { \
-        munit_errorf("assertion failed: memory " #a " == " #b ", at offset %zu", pos); \
+        munit_errorf("assertion failed: memory " #a " == " #b ", at offset %" MUNIT_SIZE_MODIFIER "u", pos); \
         break; \
       } \
     } \
