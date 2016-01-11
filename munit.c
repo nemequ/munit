@@ -313,7 +313,7 @@ munit_cpu_clock_get_time(MunitCpuClock* cpuclock) {
     fputs ("Unable to get CPU clock time\n", stderr);
   }
 #elif MUNIT_CPU_TIME_METHOD == MUNIT_CPU_TIME_METHOD_CLOCK
-  cpuclock = clock();
+  *cpuclock = clock();
 #endif
 }
 

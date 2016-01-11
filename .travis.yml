@@ -3,12 +3,14 @@ sudo: required
 dist: trusty
 os:
   - linux
+  - osx
 branches:
   except:
     - /^(wip\/)?(msvc|windows)(\-.+)?$/
 env:
   matrix:
     - COMPILER=gcc-5 CFLAGS="-fsanitize=address -fsanitize=undefined"
+    - COMPILER=clang
     # This is disabled due to an issue with the packaging, not µnit.
     # - COMPILER=clang-3.7 CFLAGS="-fsanitize=address -fsanitize=undefined"
     - COMPILER=gcc-4.9 CFLAGS="-fsanitize=address -fsanitize=undefined"
@@ -23,6 +25,28 @@ env:
     - COMPILER=i686-w64-mingw32-gcc EXTENSION=".exe"
   global:
     - GLOBAL_CFLAGS="-std=c99 -g -fno-omit-frame-pointer -Wall -Wextra -Werror"
+matrix:
+  exclude:
+    - os: linux
+      env: COMPILER=clang
+    - os: osx
+      env: COMPILER=clang-3.7 CFLAGS="-fsanitize=address -fsanitize=undefined"
+    - os: osx
+      env: COMPILER=gcc-4.9 CFLAGS="-fsanitize=address -fsanitize=undefined"
+    - os: osx
+      env: COMPILER=clang-3.6 CFLAGS="-fsanitize=address -fsanitize=undefined"
+    - os: osx
+      env: COMPILER=gcc-4.7
+    - os: osx
+      env: COMPILER=gcc-4.4
+    - os: osx
+      env: COMPILER=clang-3.5 CFLAGS="-fsanitize=address -fsanitize=undefined"
+    - os: osx
+      env: COMPILER=clang-3.4 CFLAGS="-fsanitize=address -fsanitize=undefined"
+    - os: osx
+      env: COMPILER=x86_64-w64-mingw32-gcc EXTENSION=".exe"
+    - os: osx
+      env: COMPILER=i686-w64-mingw32-gcc EXTENSION=".exe"
 before_install:
  - ./.travis-install-compiler.sh
 script:
@@ -30,5 +54,5 @@ script:
  # Installing Wine wants to pull in the graphical stack, so we can't
  # run the test for mingw.
  - if [ x"$EXTENSION" = "x" ]; then make test; fi
-# notifications:
-#   email: false
+notifications:
+  email: false
