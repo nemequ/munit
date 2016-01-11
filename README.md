@@ -15,6 +15,8 @@ Features µnit currently includes include:
  * Handy assertion macros which make for nice error messages.
  * Reproducible cross-platform random number generation, including
    support for supplying a seed via CLI.
+ * Timing of both wall-clock and CPU time; great for
+   micro-benchmarking.
  * Fixtures.
  * Forking
    ([except on Windows](https://github.com/nemequ/munit/issues/2)).
@@ -24,9 +26,6 @@ Features µnit does not currently include, but some day may include
 
  * [TAP](http://testanything.org/) support; feel free to discuss in
    [issue #1](https://github.com/nemequ/munit/issues/1)
- * Timing (micro-benchmarking).  Code may be stolen from
-   [here](https://github.com/quixdb/squash-benchmark/blob/master/timer.c).
-   Probably coming soon.
 
 ## Documentation
 

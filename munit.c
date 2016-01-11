@@ -21,6 +21,26 @@
  * SOFTWARE.
  */
 
+/*** Configuration ***/
+
+/* This is just where the output from the test goes.  It's really just
+ * meant to let you choose stdout or stderr, but if anyone really want
+ * to direct it to a file let me know, it would be fairly easy to
+ * support. */
+#if !defined(MUNIT_OUTPUT_FILE)
+#  define MUNIT_OUTPUT_FILE stdout
+#endif
+
+/* This is a bit more useful; it tells µnit how to format the seconds in
+ * timed tests.  If your tests run for longer you might want to reduce
+ * it, and if your computer is really fast and your tests are tiny you
+ * can increase it. */
+#if !defined(MUNIT_TEST_TIME_FORMAT)
+#  define MUNIT_TEST_TIME_FORMAT "0.8f"
+#endif
+
+/*** End configuration ***/
+
 #include <stdint.h>
 #include <stdbool.h>
 #include <limits.h>
@@ -29,8 +49,13 @@
 #include <string.h>
 #include <stdlib.h>
 
-/* TODO: need fallbacks (especially for Windows). */
+/* TODO: need fallbacks (especially for Windows).  I have some code
+ * in an unreleased project that would help... */
 #include <stdatomic.h>
+
+#if !defined(_WIN32)
+#  include <unistd.h>
+#endif
 
 #include "munit.h"
 
@@ -157,9 +182,133 @@ munit_rand_double(void) {
   return retval;
 }
 
-/*** Test suite handling ***/
+/*** Timer code ***/
 
-#define MUNIT_OUTPUT_FILE stdout
+/* This section is definitely a bit messy, patches to clean it up
+ * gratefully accepted. */
+
+#define MUNIT_TIMER_METHOD_CLOCK_GETTIME 0
+#define MUNIT_TIMER_METHOD_GETRUSAGE 1
+#define MUNIT_TIMER_METHOD_GETPROCESSTIMES 2
+
+#ifdef _WIN32
+#  define MUNIT_TIMER_METHOD MUNIT_TIMER_METHOD_GETPROCESSTIMES
+#  include <windows.h>
+#  if _WIN32_WINNT >= 0x0600
+     typedef DWORD MunitWallClock;
+#  else
+     typedef ULONGLONG MunitWallClock;
+#  endif
+     typedef FILETIME MunitCpuClock;
+#elif defined(_POSIX_CPUTIME)
+#  define MUNIT_TIMER_CPUTIME CLOCK_PROCESS_CPUTIME_ID
+#  define MUNIT_TIMER_METHOD MUNIT_TIMER_METHOD_CLOCK_GETTIME
+#  include <time.h>
+   typedef struct timespec MunitWallClock;
+   typedef struct timespec MunitCpuClock;
+#elif defined(CLOCK_VIRTUAL)
+#  define MUNIT_TIMER_CPUTIME CLOCK_VIRTUAL
+#  define MUNIT_TIMER_METHOD MUNIT_TIMER_METHOD_CLOCK_GETTIME
+#  include <time.h>
+   typedef struct timespec MunitWallClock;
+   typedef struct timespec MunitCpuClock;
+#else
+#  define MUNIT_TIMER_METHOD MUNIT_TIMER_METHOD_GETRUSAGE
+#  include <sys/time.h>
+#  include <sys/resource.h>
+   typedef struct timeval MunitWallClock;
+   typedef struct rusage MunitCpuClock;
+#endif
+
+static void
+munit_wall_clock_get_time(MunitWallClock* clock) {
+#if MUNIT_TIMER_METHOD == MUNIT_TIMER_METHOD_CLOCK_GETTIME
+  if (clock_gettime (CLOCK_REALTIME, clock) != 0) {
+    fputs ("Unable to get wall clock time\n", stderr);
+    exit (-1);
+  }
+#elif MUNIT_TIMER_METHOD == MUNIT_TIMER_METHOD_GETRUSAGE
+  if (gettimeofday(clock, NULL) != 0) {
+    fputs ("Unable to get time\n", stderr);
+  }
+#elif MUNIT_TIMER_METHOD == MUNIT_TIMER_METHOD_GETPROCESSTIMES
+  #if _WIN32_WINNT >= 0x0600
+    timer->start_wall = GetTickCount64 ();
+  #else
+    timer->start_wall = GetTickCount ();
+  #endif
+#endif
+}
+
+static void
+munit_cpu_clock_get_time(MunitCpuClock* clock) {
+#if MUNIT_TIMER_METHOD == MUNIT_TIMER_METHOD_CLOCK_GETTIME
+  if (clock_gettime (MUNIT_TIMER_CPUTIME, clock) != 0) {
+    fputs ("Unable to get CPU clock time\n", stderr);
+    exit (-1);
+  }
+#elif MUNIT_TIMER_METHOD == MUNIT_TIMER_METHOD_GETRUSAGE
+  if (getrusage(RUSAGE_SELF, clock) != 0) {
+    fputs ("Unable to get CPU clock time\n", stderr);
+    exit (-1);
+  }
+#elif MUNIT_TIMER_METHOD == MUNIT_TIMER_METHOD_GETPROCESSTIMES
+  FILETIME CreationTime, ExitTime, KernelTime;
+  if (!GetProcessTimes (GetCurrentProcess(), &CreationTime, &ExitTime, &KernelTime, clock)) {
+    fputs ("Unable to get CPU clock time\n", stderr);
+  }
+#endif
+}
+
+static double
+munit_wall_clock_get_elapsed(MunitWallClock* start, MunitWallClock* end) {
+#if MUNIT_TIMER_METHOD == MUNIT_TIMER_METHOD_CLOCK_GETTIME
+  return
+    (double) (end->tv_sec - start->tv_sec) +
+    (((double) (end->tv_nsec - start->tv_nsec)) / 1000000000);
+#elif MUNIT_TIMER_METHOD == MUNIT_TIMER_METHOD_GETRUSAGE
+  return
+    (double) (end->tv_sec - start->tv_sec) +
+    (((double) (end->tv_usec - start->tv_usec)) / 1000000);
+#elif MUNIT_TIMER_METHOD == MUNIT_TIMER_METHOD_GETPROCESSTIMES
+#  if _WIN32_WINNT >= 0x0600
+  return
+    (((double) *end) - ((double) *start)) * 1000;
+#  else
+  if (MUNIT_LIKELY(*end > *start))
+    return (((double) *end) - ((double) *start)) / 1000;
+  else
+    return (((double) *start) - ((double) *end)) / 1000;
+#  endif
+#endif
+}
+
+static double
+munit_cpu_clock_get_elapsed(MunitCpuClock* start, MunitCpuClock* end) {
+#if MUNIT_TIMER_METHOD == MUNIT_TIMER_METHOD_CLOCK_GETTIME
+  return
+    (double) (end->tv_sec - start->tv_sec) +
+    (((double) (end->tv_nsec - start->tv_nsec)) / 1000000000);
+#elif MUNIT_TIMER_METHOD == MUNIT_TIMER_METHOD_GETRUSAGE
+  return
+    (double) ((end->ru_utime.tv_sec + end->ru_stime.tv_sec) - (start->ru_utime.tv_sec + start->ru_stime.tv_sec)) +
+    (((double) ((end->ru_utime.tv_usec + end->ru_stime.tv_usec) - (start->ru_utime.tv_usec + start->ru_stime.tv_usec))) / 1000000);
+#elif MUNIT_TIMER_METHOD == MUNIT_TIMER_METHOD_GETPROCESSTIMES
+  ULONGLONG start_cpu, end_cpu;
+
+  start_cpu   = timer->start_cpu.dwHighDateTime;
+  start_cpu <<= sizeof (DWORD) * 8;
+  start_cpu  |= timer->start_cpu.dwLowDateTime;
+
+  end_cpu   = timer->end_cpu.dwHighDateTime;
+  end_cpu <<= sizeof (DWORD) * 8;
+  end_cpu  |= timer->end_cpu.dwLowDateTime;
+
+  timer->elapsed_cpu += ((double) (end_cpu - start_cpu)) / 10000000;
+#endif
+}
+
+/*** Test suite handling ***/
 
 /* This is the part that should be handled in the child process */
 static void
@@ -167,26 +316,35 @@ munit_test_child_exec(const MunitTest* test, void* user_data, unsigned int itera
   if ((test->options & MUNIT_TEST_OPTION_SINGLE_ITERATION) != 0)
     iterations = 1;
 
+  MunitWallClock wall_clock_begin, wall_clock_end;
+  MunitCpuClock cpu_clock_begin, cpu_clock_end;
+  double elapsed_wall;
+  double elapsed_cpu;
   unsigned int i = 0;
   do {
     munit_rand_seed(seed);
     void* data = (test->setup == NULL) ? user_data : test->setup(user_data);
 
+    munit_wall_clock_get_time(&wall_clock_begin);
+    munit_cpu_clock_get_time(&cpu_clock_begin);
+
     test->test(data);
+
+    munit_wall_clock_get_time(&wall_clock_end);
+    munit_cpu_clock_get_time(&cpu_clock_end);
+
+    elapsed_wall += munit_wall_clock_get_elapsed(&wall_clock_begin, &wall_clock_end);
+    elapsed_cpu += munit_cpu_clock_get_elapsed(&cpu_clock_begin, &cpu_clock_end);
 
     if (test->tear_down != NULL)
       test->tear_down(data);
   } while (++i < iterations);
 
   if (i == 1)
-    fprintf(MUNIT_OUTPUT_FILE, "success.\n");
+    fprintf(MUNIT_OUTPUT_FILE, "success %" MUNIT_TEST_TIME_FORMAT " seconds (%" MUNIT_TEST_TIME_FORMAT " seconds CPU).\n", elapsed_wall, elapsed_wall);
   else
-    fprintf(MUNIT_OUTPUT_FILE, "success (%u iterations).\n", iterations);
+    fprintf(MUNIT_OUTPUT_FILE, "success (%u iterations averaging %" MUNIT_TEST_TIME_FORMAT " seconds, %" MUNIT_TEST_TIME_FORMAT " seconds CPU).\n", iterations, elapsed_wall / iterations, elapsed_cpu / iterations);
 }
-
-#if !defined(_WIN32)
-#  include <unistd.h> /* for fork() */
-#endif
 
 static bool
 munit_test_exec(const MunitTest* test, void* user_data, unsigned int iterations, MunitSuiteOptions options, uint32_t seed) {
@@ -269,7 +427,7 @@ munit_suite_run(const MunitSuite* suite, void* user_data) {
     test_num++;
   }
 
-  fprintf(MUNIT_OUTPUT_FILE, "%d of %d (%g%%) tests successful.\n",
+  fprintf(MUNIT_OUTPUT_FILE, "%d of %d (%f%%) tests successful.\n",
 	  successful, test_num, (((double) successful) / ((double) test_num)) * 100);
 
   return successful == test_num;
