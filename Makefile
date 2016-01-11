@@ -7,6 +7,9 @@ CFLAGS:=-g
 example: munit.c example.c
 	$(CC) $(CFLAGS) -o $@ munit.c example.c
 
+test:
+	./example
+
 clean:
 	rm example
 
