@@ -2,7 +2,7 @@
 # file to your sources.  That said, here is a simple Makefile to build
 # the example.
 
-CFLAGS:=-g
+CFLAGS:=-std=c99 -g
 
 example: munit.c example.c
 	$(CC) $(CFLAGS) -o $@ munit.c example.c

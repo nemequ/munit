@@ -41,6 +41,8 @@
 
 /*** End configuration ***/
 
+#define _POSIX_C_SOURCE 200112L
+
 #include <stdint.h>
 #include <stdbool.h>
 #include <limits.h>
@@ -49,19 +51,15 @@
 #include <string.h>
 #include <stdlib.h>
 
-/* TODO: need fallbacks (especially for Windows).  I have some code
- * in an unreleased project that would help... */
-#include <stdatomic.h>
-
 #if !defined(_WIN32)
 #  include <unistd.h>
 #endif
 
 #include "munit.h"
 
-/* PRNG stuff
- *
- * This is (unless I screwed up, which is entirely possible) the
+/*** PRNG stuff ***/
+
+/* This is (unless I screwed up, which is entirely possible) the
  * version of PCG with 32-bit state.  It was chosen because it has a
  * small enough state that we should reliably be able to use CAS
  * instead of requiring a lock for thread-safety.
@@ -72,14 +70,62 @@
  * important that it be reproducible, so bug reports have a better
  * chance of being reproducible. */
 
-static _Atomic uint32_t munit_prng_state = 42;
+#if defined(__STDC_VERSION__) && (__STDC__VERSION__ >= 201112L) && !defined(__STDC_NO_ATOMICS__)
+#  define HAVE_STDATOMIC
+#error huh
+#elif defined(__clang__)
+#  if __has_extension(c_atomic)
+#    define HAVE_CLANG_ATOMICS
+#  endif
+#endif
+
+#if defined(HAVE_STDATOMIC)
+#  define ATOMIC_UINT32_T _Atomic uint32_t
+#  define ATOMIC_UINT32_INIT(x) ATOMIC_VAR_INIT(x)
+#elif defined(HAVE_CLANG_ATOMICS)
+#  define ATOMIC_UINT32_T _Atomic uint32_t
+#  define ATOMIC_UINT32_INIT(x) (x)
+#elif defined(_WIN32)
+#  define ATOMIC_UINT32_T volatile LONG
+#  define ATOMIC_UINT32_INIT(x) (x)
+#else
+#  define ATOMIC_UINT32_T volatile uint32_t
+#  define ATOMIC_UINT32_INIT(x) (x)
+#endif
+
+static ATOMIC_UINT32_T munit_prng_state = ATOMIC_UINT32_INIT(42);
+
+#if HAVE_STDATOMIC
+#  include <stdatomic.h>
+#  define munit_atomic_store(dest, value)         atomic_store(dest, value)
+#  define munit_atomic_load(src)                  atomic_load(src)
+#  define munit_atomic_cas(dest, expected, value) atomic_compare_exchange_weak(dest, expected, value)
+#elif defined(HAVE_CLANG_ATOMICS)
+#  define munit_atomic_store(dest, value)         __c11_atomic_store(dest, value, __ATOMIC_SEQ_CST)
+#  define munit_atomic_load(src)                  __c11_atomic_load(src, __ATOMIC_SEQ_CST)
+#  define munit_atomic_cas(dest, expected, value) __c11_atomic_compare_exchange_weak(dest, expected, value, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST)
+#elif defined(__GNUC__) && (__GNUC__ > 4) || (__GNUC__ == 4 && __GNUC_MINOR__ >= 7)
+#  define munit_atomic_store(dest, value)         __atomic_store_n(dest, value, __ATOMIC_SEQ_CST)
+#  define munit_atomic_load(src)                  __atomic_load_n(src, __ATOMIC_SEQ_CST)
+#  define munit_atomic_cas(dest, expected, value) __atomic_compare_exchange_n(dest, expected, value, true, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST)
+#elif defined(__GNUC__) && (__GNUC__ >= 4)
+#  define munit_atomic_store(dest,value)          do { *dest = value; } while (0)
+#  define munit_atomic_load(src)                  (*src)
+#  define munit_atomic_cas(dest, expected, value) __sync_bool_compare_and_swap(dest, *expected, value)
+#elif defined(_WIN32) /* Untested */
+#  define munit_atomic_store(dest,value)          do { *dest = value; } while (0)
+#  define munit_atomic_load(src)                  (*src)
+#  define munit_atomic_cas(dest, expected, value) InterlockedCompareExchange(dest, value, expected)
+#else
+#  error No atomic implementation
+#endif
 
 #define MUNIT_PRNG_MULTIPLIER UINT32_C(747796405)
 #define MUNIT_PRNG_INCREMENT  1729
 
 void
 munit_rand_seed(uint32_t seed) {
-  atomic_store(&munit_prng_state, seed);
+  munit_atomic_store(&munit_prng_state, seed);
 }
 
 static uint32_t
@@ -91,19 +137,20 @@ munit_rand_from_state(uint32_t state) {
 
 uint32_t
 munit_rand_uint32(void) {
-  uint32_t old, state;
+  uint32_t old;
+  uint32_t state;
 
   do {
-    old = atomic_load(&munit_prng_state);
+    old = munit_atomic_load(&munit_prng_state);
     state = old * MUNIT_PRNG_MULTIPLIER + (MUNIT_PRNG_INCREMENT | 1);
-  } while (!atomic_compare_exchange_weak(&munit_prng_state, &old, state));
+  } while (!munit_atomic_cas(&munit_prng_state, &old, state));
 
   return munit_rand_from_state(old);
 }
 
 uint32_t
 munit_rand_make_seed(void) {
-  uint8_t orig = (uint32_t) time(NULL);
+  uint32_t orig = (uint32_t) time(NULL);
   orig = orig * MUNIT_PRNG_MULTIPLIER + (MUNIT_PRNG_INCREMENT | 1);
   return munit_rand_from_state(orig);
 }

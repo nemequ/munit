@@ -89,7 +89,7 @@ static void test_compare (void* data) {
 
   /* Lets verify that the data parameter is what we expected.  We'll
    * see where this comes from in a bit. */
-  munit_assert_string_equal(data, "victory");
+  munit_assert_ptr_equal(data, 0xdeadbeef);
 }
 
 void test_rand(MUNIT_UNUSED void* user_data) {
@@ -139,7 +139,7 @@ void test_rand(MUNIT_UNUSED void* user_data) {
 static void*
 test_compare_setup(void* user_data) {
   munit_assert_string_equal(user_data, "µnit");
-  return strdup("victory");
+  return (void*)(uintptr_t)0xdeadbeef;
 }
 
 /* To clean up after a test, you can use a tear down function.  The
@@ -147,8 +147,7 @@ test_compare_setup(void* user_data) {
  * above. */
 static void
 test_compare_tear_down(void* fixture) {
-  munit_assert_string_equal(fixture, "victory");
-  free(fixture);
+  munit_assert_ptr_equal(fixture, 0xdeadbeef);
 }
 
 /* Creating a test suite is pretty simple.  First, you'll need an
