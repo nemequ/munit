@@ -5,8 +5,7 @@ limited number of bells and almost no whistles.  It has no
 dependencies (beyond libc), is permissively licensed (MIT), and is
 easy to include into any project.
 
-**µnit is a work in progress** and isn't yet ready to use.  Check back
-in a couple weeks.
+[![Build Status](https://travis-ci.org/nemequ/munit.svg?branch=master)](https://travis-ci.org/nemequ/munit)
 
 ## Features
 
