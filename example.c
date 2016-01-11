@@ -89,7 +89,7 @@ static void test_compare (void* data) {
 
   /* Lets verify that the data parameter is what we expected.  We'll
    * see where this comes from in a bit. */
-  munit_assert_ptr_equal(data, 0xdeadbeef);
+  munit_assert_ptr_equal(data, (void*)(uintptr_t)0xdeadbeef);
 }
 
 void test_rand(MUNIT_UNUSED void* user_data) {
@@ -147,7 +147,7 @@ test_compare_setup(void* user_data) {
  * above. */
 static void
 test_compare_tear_down(void* fixture) {
-  munit_assert_ptr_equal(fixture, 0xdeadbeef);
+  munit_assert_ptr_equal(fixture, (void*)(uintptr_t)0xdeadbeef);
 }
 
 /* Creating a test suite is pretty simple.  First, you'll need an
