@@ -703,7 +703,7 @@ munit_test_runner_run_named(MunitTestRunner* runner, const char* test_name) {
 
 static void
 munit_print_help(int argc, const char* argv[MUNIT_ARRAY_PARAM(argc + 1)]) {
-  printf("USAGE: %s [--seed SEED] [--param NAME VALUE...] [TEST...]\n\n", argv[0]);
+  printf("USAGE: %s [OPTIONS...] [TEST...]\n\n", argv[0]);
   puts(" --seed    Value used to seed the PRNG.  Must be a 32-bit integer in\n"
        "           decimal notation with no separators (commas, decimals,\n"
        "           spaces, etc.), or hexidecimal prefixed by \"0x\".\n"
