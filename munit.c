@@ -868,7 +868,6 @@ munit_suite_main(const MunitSuite* suite, void* user_data,
       const bool found = munit_test_runner_run_named(&runner, *test);
       if (!found) {
 	fprintf(stderr, "Error: test `%s' not found.\n", *test);
-	result = EXIT_FAILURE;
 	goto cleanup;
       }
     }
@@ -884,6 +883,10 @@ munit_suite_main(const MunitSuite* suite, void* user_data,
 	    (((double) runner.successful) / ((double) tests_run)) * 100.0,
 	    runner.skipped,
 	    (((double) runner.skipped) / ((double) tests_total)) * 100.0);
+  }
+
+  if (runner.failed == 0 && runner.errored == 0) {
+    result = EXIT_SUCCESS;
   }
 
  cleanup:
