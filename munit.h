@@ -80,7 +80,7 @@ void munit_log_ex(MunitLogLevel level, const char* filename, int line, const cha
   munit_logf(level, "%s", msg)
 
 #define munit_errorf(format, ...) \
-  munit_logf(MUNIT_ERROR, format, __VA_ARGS__)
+  munit_logf(MUNIT_FATAL, format, __VA_ARGS__)
 
 #define munit_error(msg) \
   munit_errorf("%s", msg)
