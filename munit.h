@@ -1,4 +1,5 @@
-/* Copyright (c) 2013-2016 Evan Nemerson <evan@nemerson.com>
+/* µnit Testing Framework
+ * Copyright (c) 2013-2016 Evan Nemerson <evan@nemerson.com>
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -216,35 +217,53 @@ int munit_rand_int_range(int min, int max);
 double munit_rand_double(void);
 void munit_rand_memory (size_t size, uint8_t buffer[MUNIT_ARRAY_PARAM(size)]);
 
-/* If a test implements a setup function then the value that function
- * returns is passed to the user_data_or_fixture parameter.  If the
- * setup function is NULL then it will be the user_data passed to the
- * function used to run the test (likely munit_suite_run). */
+/*** Tests and Suites ***/
 
-typedef void  (* MunitTestFunc)(void* user_data_or_fixture);
-typedef void* (* MunitTestSetup)(void* user_data);
-typedef void  (* MunitTestTearDown)(void* fixture);
+typedef enum {
+  /* Test successful */
+  MUNIT_OK,
+  /* Test failed */
+  MUNIT_FAIL,
+  /* Test was skipped */
+  MUNIT_SKIP,
+  /* Test failed due to circumstances not intended to be tested
+   * (things like network errors, invalid parameter value, failure to
+   * allocate memory in the test harness, etc.). */
+  MUNIT_ERROR
+} MunitResult;
+
+typedef struct {
+  const char*  name;
+  const char** values;
+} MunitParameterEnum;
+
+typedef struct {
+  const char* name;
+  const char* value;
+} MunitParameter;
+
+const char* munit_parameters_get(const MunitParameter params[], const char* key);
 
 typedef enum {
   MUNIT_TEST_OPTION_NONE = 0,
-  MUNIT_TEST_OPTION_SINGLE_ITERATION = 1 << 0,
-  MUNIT_TEST_OPTION_NO_RESET = 1 << 1,
-  MUNIT_TEST_OPTION_NO_FORK = 1 << 2,
-  /* MUNIT_TEST_OPTION_NO_TIME = 1 << 3, */
+  MUNIT_TEST_OPTION_SINGLE_ITERATION = 1 << 0
 } MunitTestOptions;
 
+typedef MunitResult (* MunitTestFunc)(MunitParameter params[], void* user_data_or_fixture);
+typedef void*       (* MunitTestSetup)(MunitParameter params[], void* user_data);
+typedef void        (* MunitTestTearDown)(void* fixture);
+
 typedef struct {
-  const char*       name;
-  MunitTestFunc     test;
-  MunitTestSetup    setup;
-  MunitTestTearDown tear_down;
-  MunitTestOptions  options;
+  const char*               name;
+  MunitTestFunc             test;
+  MunitTestSetup            setup;
+  MunitTestTearDown         tear_down;
+  MunitTestOptions          options;
+  const MunitParameterEnum* parameters;
 } MunitTest;
 
 typedef enum {
-  MUNIT_SUITE_OPTION_NONE = 0,
-  MUNIT_SUITE_OPTION_NO_FORK = 1 << 1,
-  /* MUNIT_SUITE_OPTION_NO_TIME = 1 << 2, */
+  MUNIT_SUITE_OPTION_NONE = 0
 } MunitSuiteOptions;
 
 typedef struct {
@@ -253,8 +272,7 @@ typedef struct {
   MunitSuiteOptions options;
 } MunitSuite;
 
-_Bool munit_suite_run_test(const MunitSuite* suite, const char* test, void* user_data);
-_Bool munit_suite_run(const MunitSuite* suite, void* user_data);
+int munit_suite_main(const MunitSuite* suite, void* user_data, int argc, const char* argv[MUNIT_ARRAY_PARAM(argc + 1)]);
 
 #if defined(__cplusplus)
 }

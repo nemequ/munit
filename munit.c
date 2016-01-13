@@ -94,7 +94,7 @@
 #  define ATOMIC_UINT32_INIT(x) (x)
 #endif
 
-static ATOMIC_UINT32_T munit_prng_state = ATOMIC_UINT32_INIT(42);
+static ATOMIC_UINT32_T munit_rand_state = ATOMIC_UINT32_INIT(42);
 
 #if HAVE_STDATOMIC
 #  include <stdatomic.h>
@@ -126,7 +126,7 @@ static ATOMIC_UINT32_T munit_prng_state = ATOMIC_UINT32_INIT(42);
 
 void
 munit_rand_seed(uint32_t seed) {
-  munit_atomic_store(&munit_prng_state, seed);
+  munit_atomic_store(&munit_rand_state, seed);
 }
 
 static uint32_t
@@ -136,24 +136,32 @@ munit_rand_from_state(uint32_t state) {
   return res;
 }
 
+static uint32_t
+munit_prng_uint32(uint32_t* state) {
+  *state = *state * MUNIT_PRNG_MULTIPLIER + (MUNIT_PRNG_INCREMENT | 1);
+  uint32_t res = ((*state >> ((*state >> 28) + 4)) ^ *state) * UINT32_C(277803737);
+  res ^= res >> 22;
+  return res;
+}
+
+static void
+munit_prng_seed(uint32_t* state) {
+  uint32_t orig = (uint32_t) time(NULL);
+  orig = orig * MUNIT_PRNG_MULTIPLIER + (MUNIT_PRNG_INCREMENT | 1);
+  *state = munit_prng_uint32(&orig);
+}
+
 uint32_t
 munit_rand_uint32(void) {
   uint32_t old;
   uint32_t state;
 
   do {
-    old = munit_atomic_load(&munit_prng_state);
+    old = munit_atomic_load(&munit_rand_state);
     state = old * MUNIT_PRNG_MULTIPLIER + (MUNIT_PRNG_INCREMENT | 1);
-  } while (!munit_atomic_cas(&munit_prng_state, &old, state));
+  } while (!munit_atomic_cas(&munit_rand_state, &old, state));
 
   return munit_rand_from_state(old);
-}
-
-uint32_t
-munit_rand_make_seed(void) {
-  uint32_t orig = (uint32_t) time(NULL);
-  orig = orig * MUNIT_PRNG_MULTIPLIER + (MUNIT_PRNG_INCREMENT | 1);
-  return munit_rand_from_state(orig);
 }
 
 void
@@ -200,8 +208,8 @@ typedef unsigned __int128 ugtint;
 #error Unable to locate a type larger than int
 #endif
 
-int
-munit_rand_int_range(int min, int max) {
+static int
+munit_rand_int_range_salted(int min, int max, uint32_t salt) {
   munit_assert(min < max);
 
   if (min == max)
@@ -212,7 +220,12 @@ munit_rand_int_range(int min, int max) {
   /* TODO this is overflowy, biased, and generally buggy. */
 
   gtint range = (max - min) + 1;
-  return (munit_rand_uint32() % range) + min;
+  return ((munit_rand_uint32() ^ salt) % range) + min;
+}
+
+int
+munit_rand_int_range(int min, int max) {
+  return munit_rand_int_range_salted(min, max, 0);
 }
 
 #define MUNIT_DOUBLE_TRANSFORM (2.3283064365386962890625e-10)
@@ -404,25 +417,47 @@ munit_cpu_clock_get_elapsed(MunitCpuClock* start, MunitCpuClock* end) {
 
 /*** Test suite handling ***/
 
-/* This is the part that should be handled in the child process */
-static void
-munit_test_child_exec(const MunitTest* test, void* user_data, unsigned int iterations, MUNIT_UNUSED MunitSuiteOptions options, uint32_t seed) {
-  if ((test->options & MUNIT_TEST_OPTION_SINGLE_ITERATION) != 0)
-    iterations = 1;
+const char*
+munit_parameters_get(const MunitParameter params[], const char* key) {
+  for (const MunitParameter* param = params ; param != NULL && param->name != NULL ; param++)
+    if (strcmp(param->name, key) == 0)
+      return param->value;
+  return NULL;
+}
 
+typedef struct {
+  const MunitSuite* suite;
+  uint32_t seed;
+  MunitParameter* parameters;
+  bool single_parameter_set;
+  void* user_data;
+  unsigned int successful;
+  unsigned int skipped;
+  unsigned int failed;
+  unsigned int errored;
+  double cpu_time;
+  double wall_time;
+} MunitTestRunner;
+
+/* This is the part that should be handled in the child process */
+static MunitResult
+munit_test_runner_exec(MunitTestRunner* runner, const MunitTest* test, MunitParameter params[]) {
+  unsigned int iterations = ((test->options & MUNIT_TEST_OPTION_SINGLE_ITERATION) == 0) ?
+    runner->suite->iterations : 1;
+  MunitResult result = MUNIT_FAIL;
   MunitWallClock wall_clock_begin, wall_clock_end;
   MunitCpuClock cpu_clock_begin, cpu_clock_end;
   double elapsed_wall = 0.0;
   double elapsed_cpu = 0.0;
   unsigned int i = 0;
   do {
-    munit_rand_seed(seed);
-    void* data = (test->setup == NULL) ? user_data : test->setup(user_data);
+    munit_rand_seed(runner->seed);
+    void* data = (test->setup == NULL) ? runner->user_data : test->setup(params, runner->user_data);
 
     munit_wall_clock_get_time(&wall_clock_begin);
     munit_cpu_clock_get_time(&cpu_clock_begin);
 
-    test->test(data);
+    result = test->test(params, data);
 
     munit_wall_clock_get_time(&wall_clock_end);
     munit_cpu_clock_get_time(&cpu_clock_end);
@@ -434,98 +469,392 @@ munit_test_child_exec(const MunitTest* test, void* user_data, unsigned int itera
       test->tear_down(data);
   } while (++i < iterations);
 
-  if (i == 1)
-    fprintf(MUNIT_OUTPUT_FILE, "success %" MUNIT_TEST_TIME_FORMAT " seconds (%" MUNIT_TEST_TIME_FORMAT " seconds CPU).\n", elapsed_wall, elapsed_wall);
-  else
-    fprintf(MUNIT_OUTPUT_FILE, "success (%u iterations averaging %" MUNIT_TEST_TIME_FORMAT " seconds, %" MUNIT_TEST_TIME_FORMAT " seconds CPU).\n", iterations, elapsed_wall / iterations, elapsed_cpu / iterations);
+  if (result == MUNIT_OK) {
+    runner->cpu_time += elapsed_cpu;
+    runner->wall_time += elapsed_wall;
+
+    if (i == 1) {
+      fprintf(MUNIT_OUTPUT_FILE,
+	      "OK %" MUNIT_TEST_TIME_FORMAT " seconds (%" MUNIT_TEST_TIME_FORMAT " seconds CPU).\n",
+	      elapsed_wall, elapsed_wall);
+    } else {
+      fprintf(MUNIT_OUTPUT_FILE,
+	      "OK (%u iterations averaging %" MUNIT_TEST_TIME_FORMAT " seconds, %" MUNIT_TEST_TIME_FORMAT " seconds CPU).\n",
+	      iterations, elapsed_wall / iterations, elapsed_cpu / iterations);
+    }
+  }
+
+  return result;
+}
+
+static MunitResult
+munit_test_runner_run_with_params(MunitTestRunner* runner, const MunitTest* test, MunitParameter params[]) {
+  MunitResult result = MUNIT_ERROR;
+
+  fputs(test->name, MUNIT_OUTPUT_FILE);
+  if (params != NULL) {
+    fputc('[', MUNIT_OUTPUT_FILE);
+    bool first = true;
+    for (MunitParameter* param = params ; param != NULL && param->name != NULL ; param++) {
+      if (!first)
+	fputs(", ", MUNIT_OUTPUT_FILE);
+      else
+	first = false;
+
+      fprintf(MUNIT_OUTPUT_FILE, "%s=%s", param->name, param->value);
+    }
+    fputc(']', MUNIT_OUTPUT_FILE);
+  }
+  fputs(": ", MUNIT_OUTPUT_FILE);
+
+  fflush(MUNIT_OUTPUT_FILE);
+
+#if !defined(_WIN32)
+  pid_t fork_pid;
+  int pipefd[2];
+  if (pipe(pipefd) != 0) {
+    fprintf(MUNIT_OUTPUT_FILE, "Error: unable to create pipe: %s\n", strerror(errno));
+    result = MUNIT_ERROR;
+  }
+
+  fork_pid = fork ();
+  if (fork_pid == 0) {
+    close(pipefd[0]);
+    result = munit_test_runner_exec(runner, test, params);
+    write(pipefd[1], &result, sizeof(result));
+    close(pipefd[1]);
+    exit(EXIT_SUCCESS);
+  } else if (fork_pid == -1) {
+    fputs("Error: unable to fork()\n", MUNIT_OUTPUT_FILE);
+    close(pipefd[0]);
+    close(pipefd[1]);
+    result = MUNIT_ERROR;
+  } else {
+    close(pipefd[1]);
+    size_t bytes_read = read(pipefd[0], &result, sizeof(result));
+    if (bytes_read != sizeof(MunitResult)) {
+      result = MUNIT_FAIL;
+    }
+  }
+#else
+  /* We don't (yet?) support forking on Windows */
+  result = munit_test_runner_exec(runner, test, params);
+#endif
+
+  switch (result) {
+    case MUNIT_OK:
+      runner->successful++;
+      break;
+    case MUNIT_ERROR:
+      runner->errored++;
+      break;
+    case MUNIT_SKIP:
+      runner->skipped++;
+      fprintf(MUNIT_OUTPUT_FILE, "SKIPPED.\n");
+      break;
+    case MUNIT_FAIL:
+      runner->failed++;
+      fprintf(MUNIT_OUTPUT_FILE, "FAILED.\n");
+      break;
+  }
+
+  return result;
+}
+
+static uint32_t
+munit_test_name_hash(const char* name) {
+  const char *p;
+  uint32_t h = UINT32_C(5381);
+
+  for (p = name; *p != '\0'; p++)
+    h = (h << 5) + h + *p;
+
+  return h;
+}
+
+static MunitResult
+munit_parameters_add(size_t* params_size, MunitParameter* params[MUNIT_ARRAY_PARAM(*params_size)], const char* name, const char* value) {
+  *params = realloc(*params, sizeof(MunitParameter) * (*params_size + 2));
+  if (*params == NULL)
+    return MUNIT_ERROR;
+
+  (*params)[*params_size].name = name;
+  (*params)[*params_size].value = value;
+  (*params_size)++;
+  (*params)[*params_size].name = NULL;
+  (*params)[*params_size].value = NULL;
+
+  return MUNIT_OK;
+}
+
+static void
+munit_test_runner_run_each(MunitTestRunner* runner, const MunitTest* test, MunitParameter* params, MunitParameter* p) {
+  const MunitParameterEnum* pe;
+  for (pe = test->parameters ; pe != NULL && pe->name != NULL ; pe++) {
+    if (p->name == pe->name)
+      break;
+  }
+
+  if (pe == NULL)
+    return;
+
+  for (const char** values = pe->values ; *values != NULL ; values++) {
+    MunitParameter* next = p + 1;
+    p->value = *values;
+    if (next->name == NULL) {
+      munit_test_runner_run_with_params(runner, test, params);
+    } else {
+      munit_test_runner_run_each(runner, test, params, next);
+    }
+  }
+
+  /* if (next->name != NULL) { */
+  /*   //munit_test_runner_run_each(runner, test, params, next); */
+  /* } else { */
+  /*   fprintf(stderr, "pe: %p %s\n", pe, pe->name); */
+  /* } */
+}
+
+static void
+munit_test_runner_run(MunitTestRunner* runner, const MunitTest* test) {
+  munit_rand_seed(runner->seed);
+
+  if (test->parameters == NULL) {
+    munit_test_runner_run_with_params(runner, test, NULL);
+    return;
+  } else {
+    /* TODO: this needs to be cleaned up. */
+    MunitParameter* params = NULL;
+    size_t params_size = 0;
+    MunitParameter* wild_params = NULL;
+    size_t wild_params_size = 0;
+    for (const MunitParameterEnum* pe = test->parameters ; pe != NULL && pe->name != NULL ; pe++) {
+      bool filled = false;
+      /* Did we get a value from the CLI? */
+      for (const MunitParameter* cli_p = runner->parameters ; cli_p != NULL && cli_p->name != NULL ; cli_p++) {
+	if (strcmp(cli_p->name, pe->name) == 0) {
+	  if (MUNIT_UNLIKELY(munit_parameters_add(&params_size, &params, pe->name, cli_p->value) != MUNIT_OK))
+	    goto cleanup;
+	  filled = true;
+	  break;
+	}
+      }
+      if (filled)
+	continue;
+
+      /* Nothing from CLI, is the enum NULL/empty? */
+      if (pe->values == NULL || pe->values[0] == NULL)
+	continue;
+
+      /* Choose a random value */
+      if (runner->single_parameter_set) {
+	unsigned int possible = 0;
+	for (const char** vals = pe->values ; *vals != NULL ; vals++)
+	  possible++;
+	/* We want the tests to be reproducible, even if you're only
+	 * running a single test, but we don't want every test with
+	 * the same number of parameters to choose the same parameter
+	 * number, so use the test name as a primitive salt. */
+	const int pidx = munit_rand_int_range_salted(0, possible - 1, munit_test_name_hash(test->name));
+	if (MUNIT_UNLIKELY(munit_parameters_add(&params_size, &params, pe->name, pe->values[pidx]) != MUNIT_OK))
+	  goto cleanup;
+      } else {
+	/* We want to try every permutation.  Put in a placeholder
+	 * entry, we'll iterate through them later. */
+	if (MUNIT_UNLIKELY(munit_parameters_add(&wild_params_size, &wild_params, pe->name, NULL) != MUNIT_OK))
+	  goto cleanup;
+      }
+    }
+
+    if (wild_params_size != 0) {
+      const unsigned int first_wild = params_size;
+      for (const MunitParameter* wp = wild_params ; wp != NULL && wp->name != NULL ; wp++) {
+	for (const MunitParameterEnum* pe = test->parameters ; pe != NULL && pe->name != NULL ; pe++) {
+	  if (strcmp(wp->name, pe->name) == 0) {
+	    if (MUNIT_UNLIKELY(munit_parameters_add(&params_size, &params, pe->name, pe->values[0]) != MUNIT_OK))
+	      goto cleanup;
+	  }
+	}
+      }
+
+      munit_test_runner_run_each(runner, test, params, params + first_wild);
+    } else {
+      munit_test_runner_run_with_params(runner, test, params);
+    }
+
+  cleanup:
+    free(wild_params);
+    free(params);
+  }
 }
 
 static bool
-munit_test_exec(const MunitTest* test, void* user_data, unsigned int iterations, MunitSuiteOptions options, uint32_t seed) {
-  bool success = false;
-#if !defined(_WIN32)
-  const bool fork_requested = (((options & MUNIT_SUITE_OPTION_NO_FORK) == 0) && ((test->options & MUNIT_TEST_OPTION_NO_FORK) == 0));
-  pid_t fork_pid;
-#else
-  const bool fork_requested = false;
-#endif
-
-  fprintf(MUNIT_OUTPUT_FILE, "%s: ", test->name);
-  fflush(MUNIT_OUTPUT_FILE);
-
-  if (fork_requested) {
-#if !defined(_WIN32)
-    int pipefd[2];
-    if (pipe(pipefd) != 0) {
-      fprintf(MUNIT_OUTPUT_FILE, "unable to create pipe: %s\n", strerror(errno));
-      return false;
+munit_test_runner_run_named(MunitTestRunner* runner, const char* test_name) {
+  for (const MunitTest* test = runner->suite->tests ;
+       test != NULL && test->test != NULL ;
+       test++ ) {
+    if (strcmp(test_name, test->name) == 0) {
+      munit_test_runner_run(runner, test);
+      return true;
     }
-
-    fork_pid = fork ();
-    if (fork_pid == 0) {
-      close(pipefd[0]);
-      munit_test_child_exec(test, user_data, iterations, options, seed);
-      success = true;
-      write(pipefd[1], &success, sizeof(bool));
-      exit(EXIT_SUCCESS);
-    } else if (fork_pid == -1) {
-      fprintf(MUNIT_OUTPUT_FILE, "unable to fork()\n");
-      close(pipefd[0]);
-      close(pipefd[1]);
-      success = false;
-    } else {
-      close(pipefd[1]);
-      size_t bytes_read = read(pipefd[0], &success, sizeof(bool));
-      if (bytes_read != sizeof(bool) || !success) {
-	success = false;
-	fputc('\n', MUNIT_OUTPUT_FILE);
-      }
-    }
-#else
-    /* We don't (yet?) support forking on Windows */
-    munit_test_child_exec(test, user_data, iterations, options, seed);
-#endif
-  } else {
-    munit_test_child_exec(test, user_data, iterations, options, seed);
-    success = true;
   }
-
-  return success;
+  return false;
 }
 
-bool
-munit_suite_run(const MunitSuite* suite, void* user_data) {
-  uint32_t seed;
+static void
+munit_print_help(int argc, const char* argv[MUNIT_ARRAY_PARAM(argc + 1)]) {
+  printf("USAGE: %s [--seed SEED] [--param NAME VALUE...] [TEST...]\n\n", argv[0]);
+  puts(" --seed    Value used to seed the PRNG.  Must be a 32-bit integer in\n"
+       "           decimal notation with no separators (commas, decimals,\n"
+       "           spaces, etc.), or hexidecimal prefixed by \"0x\".\n"
+       " --param   A parameter key/value pair which will be passed to any test\n"
+       "           with takes a parameter of that name.  If not provided,\n"
+       "           the test will be run once for each possible parameter\n"
+       "           value.\n"
+       " --list    Write a list of all available tests and their possible\n"
+       "           parameters.\n"
+       " --single  Run each parameterized test in a single configuration instead\n"
+       "           of every possible combination\n"
+       " --help    Print this help message and exit.\n");
+}
 
-  {
-    char* seed_str = getenv("MUNIT_SEED");
-    if (seed_str != NULL) {
-      char* envptr = NULL;
-      unsigned long long ts = strtoull(seed_str, &envptr, 0);
-      if (*envptr != '\0' || ts > UINT32_MAX) {
-	fprintf(stderr, "Invalid seed specified.\n");
-	return false;
+int
+munit_suite_main(const MunitSuite* suite, void* user_data,
+		 int argc, const char* argv[MUNIT_ARRAY_PARAM(argc + 1)]) {
+  int result = EXIT_FAILURE;
+  MunitTestRunner runner = {
+    suite,
+    0,
+    NULL,
+    0,
+    user_data,
+    0, 0, 0, 0,
+    0.0, 0.0
+  };
+  size_t parameters_size = 0;
+  const char** tests = NULL;
+  size_t tests_size = 0;
+
+  munit_prng_seed(&(runner.seed));
+
+  for (int arg = 1 ; arg < argc ; arg++) {
+    if (strncmp("--", argv[arg], 2) == 0) {
+      if (strcmp("seed", argv[arg] + 2) == 0) {
+	if (arg + 1 >= argc) {
+	  fputs("Error: --seed requires an argument.\n", stderr);
+	  goto cleanup;
+	}
+
+	char* envptr = NULL;
+	unsigned long long ts = strtoull(argv[arg + 1], &envptr, 0);
+	if (*envptr != '\0' || ts > UINT32_MAX) {
+	  fprintf(stderr, "Error: invalid seed (%s) specified.\n", argv[arg + 1]);
+	  goto cleanup;
+	}
+	runner.seed = (uint32_t) ts;
+
+	arg++;
+      } else if (strcmp("param", argv[arg] + 2) == 0) {
+	if (arg + 2 >= argc) {
+	  fputs("Error: --param requires two arguments.\n", stderr);
+	  goto cleanup;
+	}
+
+	runner.parameters = realloc(runner.parameters, sizeof(MunitParameter) * (parameters_size + 2));
+	if (runner.parameters == NULL) {
+	  fputs("Error: failed to allocate memory.\n", stderr);
+	  goto cleanup;
+	}
+	runner.parameters[parameters_size].name = argv[arg + 1];
+	runner.parameters[parameters_size].value = argv[arg + 2];
+	parameters_size++;
+	runner.parameters[parameters_size].name = NULL;
+	runner.parameters[parameters_size].value = NULL;
+	arg += 2;
+      } else if (strcmp("help", argv[arg] + 2) == 0) {
+	munit_print_help(argc, argv);
+	result = EXIT_SUCCESS;
+	goto cleanup;
+      } else if (strcmp("single", argv[arg] + 2) == 0) {
+	runner.single_parameter_set = 1;
+      } else if (strcmp("list", argv[arg] + 2) == 0) {
+	puts("Available tests:\n");
+	for (const MunitTest* test = suite->tests ;
+	     test != NULL && test->name != NULL ;
+	     test++) {
+	  puts(test->name);
+	  for (const MunitParameterEnum* params = test->parameters ;
+	       params != NULL && params->name != NULL ;
+	       params++) {
+	    fprintf(stdout, " - %s: ", params->name);
+	    if (params->values == NULL) {
+	      puts("Any");
+	    } else {
+	      bool first = true;
+	      for (const char** val = params->values ;
+		   *val != NULL ;
+		   val++ ) {
+		if(!first) {
+		  fputs(", ", stdout);
+		} else {
+		  first = false;
+		}
+		fputs(*val, stdout);
+	      }
+	      putc('\n', stdout);
+	    }
+	  }
+	}
+	result = EXIT_SUCCESS;
+	goto cleanup;
+      } else {
+	fprintf(stderr, "Error: unknown argument `%s'.\n", argv[arg]);
+	goto cleanup;
       }
-      seed = (uint32_t) ts;
     } else {
-      seed = munit_rand_make_seed();
+      tests = realloc(tests, sizeof(char*) * (tests_size + 2));
+      if (tests == NULL) {
+	fputs("Error: failed to allocate memory.\n", stderr);
+	goto cleanup;
+      }
+      tests[tests_size++] = argv[arg];
+      tests[tests_size] = NULL;
     }
   }
 
   fflush(stderr);
-  fprintf(MUNIT_OUTPUT_FILE, "Running test suite with seed 0x%08" PRIx32 "...\n", seed);
+  fprintf(MUNIT_OUTPUT_FILE, "Running test suite with seed 0x%08" PRIx32 "...\n", runner.seed);
 
-  unsigned int test_num = 0;
-  unsigned int successful = 0;
-  for (const MunitTest* test = suite->tests ;
-       test->test != NULL ;
-       test++) {
-    successful += munit_test_exec(test, user_data, suite->iterations, suite->options, seed) ? 1 : 0;
-    test_num++;
+  if (tests == NULL) {
+    for (const MunitTest* test = suite->tests ; test != NULL && test->test != NULL ; test++) {
+      munit_test_runner_run(&runner, test);
+    }
+  } else {
+    for (const char** test = tests ; *test != NULL ; test++) {
+      const bool found = munit_test_runner_run_named(&runner, *test);
+      if (!found) {
+	fprintf(stderr, "Error: test `%s' not found.\n", *test);
+	result = EXIT_FAILURE;
+	goto cleanup;
+      }
+    }
   }
 
-  fprintf(MUNIT_OUTPUT_FILE, "%d of %d (%0.0f%%) tests successful.\n",
-	  successful, test_num, (((double) successful) / ((double) test_num)) * 100);
+  const unsigned int tests_run = runner.successful + runner.failed;
+  const unsigned int tests_total = tests_run + runner.skipped;
+  if (tests_run == 0) {
+    fprintf(stderr, "No tests run, %d (100%%) skipped.\n", runner.skipped);
+  } else {
+    fprintf(MUNIT_OUTPUT_FILE, "%d of %d (%0.0f%%) tests successful, %d (%0.0f%%) test skipped.\n",
+	    runner.successful, tests_run,
+	    (((double) runner.successful) / ((double) tests_run)) * 100.0,
+	    runner.skipped,
+	    (((double) runner.skipped) / ((double) tests_total)) * 100.0);
+  }
 
-  return successful == test_num;
+ cleanup:
+  free(runner.parameters);
+  free(tests);
+
+  return result;
 }

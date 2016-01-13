@@ -12,7 +12,8 @@
 
 /* Tests are functions that return void, and take a single void*
  * parameter.  We'll get to what that parameter is later. */
-static void test_compare (void* data) {
+static MunitResult
+test_compare (MUNIT_UNUSED MunitParameter params[], void* data) {
   /* Let'ss start with the basics. */
   munit_assert(0 != 1);
 
@@ -94,9 +95,12 @@ static void test_compare (void* data) {
    * function a real pointer (instead of a number like 0xdeadbeef) it
    * would work as expected. */
   munit_assert_ptr_equal(data, (void*)(uintptr_t)0xdeadbeef);
+
+  return MUNIT_OK;
 }
 
-void test_rand(MUNIT_UNUSED void* user_data) {
+static MunitResult
+test_rand(MUNIT_UNUSED MunitParameter params[], MUNIT_UNUSED void* user_data) {
   /* One thing missing from a lot of unit testing frameworks is a
    * random number generator.  You can't just use srand/rand because
    * the implementation varies across different platforms, and it's
@@ -135,13 +139,68 @@ void test_rand(MUNIT_UNUSED void* user_data) {
    * uncomment it): */
   /* random_int = munit_rand_int(); */
   /* munit_assert_cmp_int(random_int, ==, -1075473528); */
+
+  return MUNIT_OK;
+}
+
+/* This test case shows how to accept parameters.  We'll see how to
+ * specify them soon.
+ *
+ * By default, every possible variation of a parameterized test is
+ * run, but you can specify parameters manually if you want to only
+ * run specific test(s), or you can pass the --single argument to the
+ * CLI to have the harness simply choose one variation at random
+ * instead of running them all. */
+static MunitResult
+test_parameters(MUNIT_UNUSED MunitParameter params[], MUNIT_UNUSED void* user_data) {
+  /* The "foo" parameter is specified as one of the following values:
+   * "one", "two", or "three". */
+  const char* foo = munit_parameters_get(params, "foo");
+  /* Similarly, "bar" is one of "four", "five", or "six". */
+  const char* bar = munit_parameters_get(params, "bar");
+  /* "baz" is a bit more complicated.  We don't actually specify a
+   * list of valid values, so by default NULL is passed.  However, the
+   * CLI will accept any value.  This is a good way to have a value
+   * that is usually selected randomly by the test, but can be
+   * overridden on the command line if desired. */
+  /* const char* baz = munit_parameters_get(params, "baz"); */
+
+  /* Notice that we're returning MUNIT_FAIL instead of writing an
+   * error message.  Error messages are generally preferable, since
+   * they make it easier to diagnose the issue, but this is an
+   * option.
+   *
+   * Possible values are:
+   *  - MUNIT_OK: Sucess
+   *  - MUNIT_FAIL: Failure
+   *  - MUNIT_SKIP: The test was skipped; usually this happens when a
+   *    particular feature isn't in use.  For example, if you're
+   *    writing a test which uses a Wayland-only feature, but your
+   *    application is running on X11.
+   *  - MUNIT_ERROR: The test failed, but not because of anything you
+   *    wanted to test.  For example, maybe your test downloads a
+   *    remote resource and tries to parse it, but the network was
+   *    down.
+   */
+
+  if (strcmp(foo, "one") != 0 &&
+      strcmp(foo, "two") != 0 &&
+      strcmp(foo, "three") != 0)
+    return MUNIT_FAIL;
+
+  if (strcmp(bar, "four") != 0 &&
+      strcmp(bar, "five") != 0 &&
+      strcmp(bar, "six") != 0)
+    return MUNIT_FAIL;
+
+  return MUNIT_OK;
 }
 
 /* The setup function, if you provide one, for a test will be run
  * before the test, and the return value will be passed as the sole
  * parameter to the test function. */
 static void*
-test_compare_setup(void* user_data) {
+test_compare_setup(MUNIT_UNUSED MunitParameter params[], void* user_data) {
   munit_assert_string_equal(user_data, "µnit");
   return (void*)(uintptr_t)0xdeadbeef;
 }
@@ -153,6 +212,21 @@ static void
 test_compare_tear_down(void* fixture) {
   munit_assert_ptr_equal(fixture, (void*)(uintptr_t)0xdeadbeef);
 }
+
+static const char* foo_params[] = {
+  "one", "two", "three", NULL
+};
+
+static const char* bar_params[] = {
+  "four", "five", "six", NULL
+};
+
+static const MunitParameterEnum test_params[] = {
+  { "foo", foo_params },
+  { "bar", bar_params },
+  { "baz", NULL },
+  { NULL, NULL },
+};
 
 /* Creating a test suite is pretty simple.  First, you'll need an
  * array of tests: */
@@ -182,15 +256,17 @@ static const MunitTest test_suite_tests[] = {
     /* Finally, there is a bitmask for options you can pass here.
      * It's currently empty, but we have plans!  You can provide
      * either MUNIT_TEST_OPTION_NONE or 0 here to use the defaults. */
-    MUNIT_TEST_OPTION_NONE
+    MUNIT_TEST_OPTION_NONE,
+    NULL
   },
   /* Usually this is written in a much more compact format; all these
    * comments kind of ruin that, though.  Here is how you'll usually
    * see entries written: */
-  { "/example/rand", test_rand, NULL, NULL, 0 },
+  { "/example/rand", test_rand, NULL, NULL, 0, NULL },
   /* To tell the test runner when the array is over, just add a NULL
    * entry at the end. */
-  { NULL, NULL, NULL, NULL, 0 }
+  { "/example/parameters", test_parameters, NULL, NULL, 0, test_params },
+  { NULL, NULL, NULL, NULL, 0, NULL }
 };
 
 /* Now we'll actually declare the test suite.  You could do this in
@@ -215,9 +291,9 @@ static const MunitSuite test_suite = {
  * about µnit requires it. */
 #include <stdlib.h>
 
-int main(void) {
+int main(int argc, const char* argv[MUNIT_ARRAY_PARAM(argc + 1)]) {
   /* Finally, we'll actually run our test suite!  That second argument
    * is the user_data parameter which will be passed either to the
    * test or (if provided) the fixture setup function. */
-  return munit_suite_run(&test_suite, "µnit") ? EXIT_SUCCESS : EXIT_FAILURE;
+  return munit_suite_main(&test_suite, "µnit", argc, argv);
 }
