@@ -522,7 +522,7 @@ munit_splice(int from, int to) {
 static MunitResult
 munit_test_runner_run_with_params(MunitTestRunner* runner, const MunitTest* test, MunitParameter params[]) {
   MunitResult result = MUNIT_OK;
-  MunitReport report = { 0, };
+  MunitReport report = { 0, 0, 0, 0, 0.0, 0.0 };
 
   if (params != NULL) {
     unsigned int output_l = 0;
