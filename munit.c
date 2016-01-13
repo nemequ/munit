@@ -504,6 +504,21 @@ munit_test_runner_exec(MunitTestRunner* runner, const MunitTest* test, MunitPara
   return result;
 }
 
+#if !defined(_WIN32)
+static void
+munit_splice(int from, int to) {
+  uint8_t buf[1024];
+  ssize_t len = 0;
+  do {
+    len = read(from, buf, sizeof(buf));
+    if (len > 0)
+      write(to, buf, len);
+    else
+      break;
+  } while (true);
+}
+#endif
+
 static MunitResult
 munit_test_runner_run_with_params(MunitTestRunner* runner, const MunitTest* test, MunitParameter params[]) {
   MunitResult result = MUNIT_OK;
@@ -533,15 +548,29 @@ munit_test_runner_run_with_params(MunitTestRunner* runner, const MunitTest* test
 #if !defined(_WIN32)
   pid_t fork_pid;
   int pipefd[2];
+  int redir_stderr[2];
   if (pipe(pipefd) != 0) {
     fprintf(MUNIT_OUTPUT_FILE, "Error: unable to create pipe: %s\n", strerror(errno));
     result = MUNIT_ERROR;
+  } else if (pipe(redir_stderr) != 0) {
+    fprintf(MUNIT_OUTPUT_FILE, "Error: unable to redirect stderr: %s\n", strerror(errno));
+    result = MUNIT_ERROR;
+  }
+
+  if (result != MUNIT_OK) {
+    goto print_result;
   }
 
   fork_pid = fork ();
   if (fork_pid == 0) {
+    close(redir_stderr[0]);
     close(pipefd[0]);
+
+    dup2(redir_stderr[1], STDERR_FILENO);
+    close(redir_stderr[1]);
+
     munit_test_runner_exec(runner, test, params, &report);
+
     write(pipefd[1], &report, sizeof(report));
     close(pipefd[1]);
     exit(EXIT_SUCCESS);
@@ -549,30 +578,38 @@ munit_test_runner_run_with_params(MunitTestRunner* runner, const MunitTest* test
     fputs("Error: unable to fork()\n", MUNIT_OUTPUT_FILE);
     close(pipefd[0]);
     close(pipefd[1]);
+    close(redir_stderr[0]);
+    close(redir_stderr[1]);
     result = MUNIT_ERROR;
   } else {
     close(pipefd[1]);
+    close(redir_stderr[1]);
     size_t bytes_read = read(pipefd[0], &report, sizeof(report));
     if (bytes_read != sizeof(report)) {
       report.failed++;
     }
+    close(pipefd[0]);
   }
 #else
   /* We don't (yet?) support forking on Windows */
   result = munit_test_runner_exec(runner, test, params, &report);
 #endif
 
-  //fprintf(MUNIT_OUTPUT_FILE, " { %d %d %d %d } ", report.failed, report.errored, report.skipped, report.successful);
+ print_result:
+
   fputs("[ ", MUNIT_OUTPUT_FILE);
   if (report.failed > 0) {
     fputs("FAIL ", MUNIT_OUTPUT_FILE);
     runner->failed++;
+    result = MUNIT_FAIL;
   } else if (report.errored > 0) {
     fputs("ERROR", MUNIT_OUTPUT_FILE);
     runner->errored++;
+    result = MUNIT_ERROR;
   } else if (report.skipped > 0) {
     fputs("SKIP ", MUNIT_OUTPUT_FILE);
     runner->skipped++;
+    result = MUNIT_SKIP;
   } else if (report.successful > 1) {
     fputs("OK   ] [ Avg ", MUNIT_OUTPUT_FILE);
     munit_print_time(MUNIT_OUTPUT_FILE, report.cpu_clock / ((double) report.successful));
@@ -584,6 +621,7 @@ munit_test_runner_run_with_params(MunitTestRunner* runner, const MunitTest* test
     munit_print_time(MUNIT_OUTPUT_FILE, report.wall_clock);
     fputs(" Wall", MUNIT_OUTPUT_FILE);
     runner->successful++;
+    result = MUNIT_OK;
   } else if (report.successful > 0) {
     fputs("OK   ] [     ", MUNIT_OUTPUT_FILE);
     munit_print_time(MUNIT_OUTPUT_FILE, report.cpu_clock);
@@ -591,8 +629,19 @@ munit_test_runner_run_with_params(MunitTestRunner* runner, const MunitTest* test
     munit_print_time(MUNIT_OUTPUT_FILE, report.wall_clock);
     fputs(" Wall", MUNIT_OUTPUT_FILE);
     runner->successful++;
+    result = MUNIT_OK;
   }
   fputs(" ]\n", MUNIT_OUTPUT_FILE);
+
+#if !defined(_WIN32)
+  if (result == MUNIT_FAIL || result == MUNIT_ERROR) {
+    fflush(MUNIT_OUTPUT_FILE);
+    munit_splice(redir_stderr[0], STDERR_FILENO);
+    fflush(stderr);
+  }
+
+  close(redir_stderr[0]);
+#endif
 
   return result;
 }
