@@ -1,9 +1,8 @@
 # µnit
 
-µnit is a small unit testing framework for C99 and greater.  It has a
-limited number of bells and almost no whistles.  It has no
-dependencies (beyond libc), is permissively licensed (MIT), and is
-easy to include into any project.
+µnit is a small but full-featured unit testing framework for C99 and
+greater.  It has no dependencies (beyond libc), is permissively
+licensed (MIT), and is easy to include into any project.
 
 [![Build Status](https://travis-ci.org/nemequ/munit.svg?branch=master)](https://travis-ci.org/nemequ/munit)
 
