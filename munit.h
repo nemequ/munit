@@ -25,6 +25,8 @@
 #if !defined(MUNIT_H)
 #define MUNIT_H
 
+#include <stdarg.h>
+
 #if defined(__cplusplus)
 extern "C" {
 #endif
@@ -59,23 +61,26 @@ extern "C" {
 #  define MUNIT_SHORT_MODIFIER ""
 #endif
 
-#if !defined(munit_errorf)
-#  include <stdio.h> /* For fprintf */
-#  if !defined(MUNIT_NO_ABORT_ON_FAILURE)
-#    include <stdlib.h> /* For abort */
-#    define MUNIT_ABORT() abort()
-#  else
-#    define MUNIT_ABORT()
-#  endif
+typedef enum {
+  MUNIT_DEBUG,
+  MUNIT_INFO,
+  MUNIT_WARNING,
+  MUNIT_FATAL
+} MunitLogLevel;
+
+#if defined(__GNUC__)
+  __attribute__((format (printf, 4, 5)))
+#endif
+void munit_log_ex(MunitLogLevel level, const char* filename, int line, const char* format, ...);
+
+#define munit_logf(level, format, ...) \
+  munit_log_ex(level, __FILE__, __LINE__, format, __VA_ARGS__)
+
+#define munit_log(level, msg) \
+  munit_logf(level, "%s", msg)
 
 #define munit_errorf(format, ...) \
-  do { \
-    fprintf(stderr, \
-            "%s:%d: " format "\n", \
-            __FILE__, __LINE__, __VA_ARGS__); \
-    MUNIT_ABORT(); \
-  } while (0)
-#endif
+  munit_logf(MUNIT_ERROR, format, __VA_ARGS__)
 
 #define munit_error(msg) \
   munit_errorf("%s", msg)

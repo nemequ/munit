@@ -6,13 +6,13 @@ CFLAGS:=-std=c99 -g
 EXTENSION:=
 TEST_ENV:=
 
-example$(EXTENSION): munit.c example.c
+example$(EXTENSION): munit.h munit.c example.c
 	$(CC) $(CFLAGS) -o $@ munit.c example.c
 
 test:
 	$(TEST_ENV) ./example$(EXTENSION)
 
 clean:
-	rm example$(EXTENSION)
+	rm -f example$(EXTENSION)
 
 all: example$(EXTENSION)

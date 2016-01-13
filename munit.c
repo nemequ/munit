@@ -50,6 +50,8 @@
 #include <errno.h>
 #include <string.h>
 #include <stdlib.h>
+#include <stdio.h>
+#include <stdarg.h>
 
 #if !defined(_WIN32)
 #  include <unistd.h>
@@ -58,6 +60,41 @@
 #endif
 
 #include "munit.h"
+
+/*** Logging ***/
+
+static MunitLogLevel munit_log_level_visible = MUNIT_INFO;
+static MunitLogLevel munit_log_level_fatal = MUNIT_FATAL;
+
+void
+munit_log_ex(MunitLogLevel level, const char* filename, int line, const char* format, ...) {
+  va_list ap;
+
+  if (level >= munit_log_level_visible) {
+    switch(level) {
+      case MUNIT_DEBUG:
+        fprintf(stderr, "DEBUG> %s:%d: ", filename, line);
+        break;
+      case MUNIT_INFO:
+        fprintf(stderr, "INFO>  %s:%d: ", filename, line);
+        break;
+      case MUNIT_WARNING:
+        fprintf(stderr, "WARN>  %s:%d: ", filename, line);
+        break;
+      case MUNIT_FATAL:
+        fprintf(stderr, "ERROR> %s:%d: ", filename, line);
+        break;
+    }
+
+    va_start(ap, format);
+    vfprintf(stderr, format, ap);
+    va_end(ap);
+    fputc('\n', stderr);
+  }
+
+  if (level >= munit_log_level_fatal)
+    abort();
+}
 
 /*** PRNG stuff ***/
 
@@ -590,12 +627,13 @@ munit_test_runner_run_with_params(MunitTestRunner* runner, const MunitTest* test
     }
     close(pipefd[0]);
   }
+
+ print_result:
+
 #else
   /* We don't (yet?) support forking on Windows */
   result = munit_test_runner_exec(runner, test, params, &report);
 #endif
-
- print_result:
 
   fputs("[ ", MUNIT_OUTPUT_FILE);
   if (report.failed > 0) {
@@ -787,10 +825,12 @@ munit_test_runner_run_named(MunitTestRunner* runner, const char* test_name) {
 static void
 munit_print_help(int argc, const char* argv[MUNIT_ARRAY_PARAM(argc + 1)]) {
   printf("USAGE: %s [OPTIONS...] [TEST...]\n\n", argv[0]);
-  puts(" --seed    Value used to seed the PRNG.  Must be a 32-bit integer in\n"
+  puts(" --seed SEED"
+       "           Value used to seed the PRNG.  Must be a 32-bit integer in\n"
        "           decimal notation with no separators (commas, decimals,\n"
        "           spaces, etc.), or hexidecimal prefixed by \"0x\".\n"
-       " --param   A parameter key/value pair which will be passed to any test\n"
+       " --param name value\n"
+       "           A parameter key/value pair which will be passed to any test\n"
        "           with takes a parameter of that name.  If not provided,\n"
        "           the test will be run once for each possible parameter\n"
        "           value.\n"
@@ -798,6 +838,10 @@ munit_print_help(int argc, const char* argv[MUNIT_ARRAY_PARAM(argc + 1)]) {
        "           parameters.\n"
        " --single  Run each parameterized test in a single configuration instead\n"
        "           of every possible combination\n"
+       " --log-visible debug|info|warning|error\n"
+       " --log-fatal debug|info|warning|error\n"
+       "           Set the level at which messages of different severities are\n"
+       "           visible, or cause the test to terminate.\n"
        " --help    Print this help message and exit.\n");
 }
 
@@ -860,6 +904,34 @@ munit_suite_main(const MunitSuite* suite, void* user_data,
 	goto cleanup;
       } else if (strcmp("single", argv[arg] + 2) == 0) {
 	runner.single_parameter_set = 1;
+      } else if (strcmp("log-visible", argv[arg] + 2) == 0 ||
+		 strcmp("log-fatal", argv[arg] + 2) == 0) {
+	MunitLogLevel level;
+
+	if (arg + 1 >= argc) {
+	  fprintf(stderr, "Error: %s requires an argument.\n", argv[arg]);
+	  goto cleanup;
+	}
+
+	if (strcmp(argv[arg + 1], "debug") == 0)
+	  level = MUNIT_DEBUG;
+	else if (strcmp(argv[arg + 1], "info") == 0)
+	  level = MUNIT_DEBUG;
+	else if (strcmp(argv[arg + 1], "warning") == 0)
+	  level = MUNIT_DEBUG;
+	else if (strcmp(argv[arg + 1], "error") == 0)
+	  level = MUNIT_DEBUG;
+	else {
+	  fprintf(stderr, "Error: invalid log level `%s'.\n", argv[arg + 1]);
+	  goto cleanup;
+	}
+
+	if (strcmp("log-visible", argv[arg] + 2) == 0)
+	  munit_log_level_visible = level;
+	else
+	  munit_log_level_fatal = level;
+
+	arg++;
       } else if (strcmp("list", argv[arg] + 2) == 0) {
 	puts("Available tests:\n");
 	for (const MunitTest* test = suite->tests ;
