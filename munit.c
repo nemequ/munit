@@ -417,6 +417,12 @@ munit_cpu_clock_get_elapsed(MunitCpuClock* start, MunitCpuClock* end) {
 
 /*** Test suite handling ***/
 
+static void
+munit_print_time(FILE* fp, double seconds) {
+  unsigned int minutes = ((unsigned int) seconds) / 60;
+  fprintf(fp, "%02u:%011.08f", minutes, seconds - (((double) minutes) * 60));
+}
+
 const char*
 munit_parameters_get(const MunitParameter params[], const char* key) {
   for (const MunitParameter* param = params ; param != NULL && param->name != NULL ; param++)
@@ -439,16 +445,23 @@ typedef struct {
   double wall_time;
 } MunitTestRunner;
 
+typedef struct {
+  unsigned int successful;
+  unsigned int skipped;
+  unsigned int failed;
+  unsigned int errored;
+  double cpu_clock;
+  double wall_clock;
+} MunitReport;
+
 /* This is the part that should be handled in the child process */
 static MunitResult
-munit_test_runner_exec(MunitTestRunner* runner, const MunitTest* test, MunitParameter params[]) {
+munit_test_runner_exec(MunitTestRunner* runner, const MunitTest* test, MunitParameter params[], MunitReport* report) {
   unsigned int iterations = ((test->options & MUNIT_TEST_OPTION_SINGLE_ITERATION) == 0) ?
     runner->suite->iterations : 1;
   MunitResult result = MUNIT_FAIL;
   MunitWallClock wall_clock_begin, wall_clock_end;
   MunitCpuClock cpu_clock_begin, cpu_clock_end;
-  double elapsed_wall = 0.0;
-  double elapsed_cpu = 0.0;
   unsigned int i = 0;
   do {
     munit_rand_seed(runner->seed);
@@ -462,50 +475,58 @@ munit_test_runner_exec(MunitTestRunner* runner, const MunitTest* test, MunitPara
     munit_wall_clock_get_time(&wall_clock_end);
     munit_cpu_clock_get_time(&cpu_clock_end);
 
-    elapsed_wall += munit_wall_clock_get_elapsed(&wall_clock_begin, &wall_clock_end);
-    elapsed_cpu += munit_cpu_clock_get_elapsed(&cpu_clock_begin, &cpu_clock_end);
-
     if (test->tear_down != NULL)
       test->tear_down(data);
-  } while (++i < iterations);
 
-  if (result == MUNIT_OK) {
-    runner->cpu_time += elapsed_cpu;
-    runner->wall_time += elapsed_wall;
-
-    if (i == 1) {
-      fprintf(MUNIT_OUTPUT_FILE,
-	      "OK %" MUNIT_TEST_TIME_FORMAT " seconds (%" MUNIT_TEST_TIME_FORMAT " seconds CPU).\n",
-	      elapsed_wall, elapsed_wall);
+    if (MUNIT_LIKELY(result == MUNIT_OK)) {
+      report->successful++;
+      report->wall_clock += munit_wall_clock_get_elapsed(&wall_clock_begin, &wall_clock_end);
+      report->cpu_clock += munit_cpu_clock_get_elapsed(&cpu_clock_begin, &cpu_clock_end);
     } else {
-      fprintf(MUNIT_OUTPUT_FILE,
-	      "OK (%u iterations averaging %" MUNIT_TEST_TIME_FORMAT " seconds, %" MUNIT_TEST_TIME_FORMAT " seconds CPU).\n",
-	      iterations, elapsed_wall / iterations, elapsed_cpu / iterations);
+      switch (result) {
+        case MUNIT_SKIP:
+	  report->skipped++;
+	  break;
+        case MUNIT_FAIL:
+	  report->failed++;
+	  break;
+        case MUNIT_ERROR:
+	  report->errored++;
+	  break;
+        case MUNIT_OK:
+        default:
+	  break;
+      }
+      break;
     }
-  }
+  } while (++i < iterations);
 
   return result;
 }
 
 static MunitResult
 munit_test_runner_run_with_params(MunitTestRunner* runner, const MunitTest* test, MunitParameter params[]) {
-  MunitResult result = MUNIT_ERROR;
+  MunitResult result = MUNIT_OK;
+  MunitReport report = { 0, };
 
-  fputs(test->name, MUNIT_OUTPUT_FILE);
   if (params != NULL) {
-    fputc('[', MUNIT_OUTPUT_FILE);
+    unsigned int output_l = 0;
+    output_l += fputs("  ", MUNIT_OUTPUT_FILE);
     bool first = true;
     for (MunitParameter* param = params ; param != NULL && param->name != NULL ; param++) {
-      if (!first)
+      if (!first) {
 	fputs(", ", MUNIT_OUTPUT_FILE);
-      else
+	output_l += 3;
+      } else {
 	first = false;
+      }
 
-      fprintf(MUNIT_OUTPUT_FILE, "%s=%s", param->name, param->value);
+      output_l += fprintf(MUNIT_OUTPUT_FILE, "%s=%s", param->name, param->value);
     }
-    fputc(']', MUNIT_OUTPUT_FILE);
+    while (output_l++ < 48) {
+      fputc(' ', MUNIT_OUTPUT_FILE);
+    }
   }
-  fputs(": ", MUNIT_OUTPUT_FILE);
 
   fflush(MUNIT_OUTPUT_FILE);
 
@@ -520,8 +541,8 @@ munit_test_runner_run_with_params(MunitTestRunner* runner, const MunitTest* test
   fork_pid = fork ();
   if (fork_pid == 0) {
     close(pipefd[0]);
-    result = munit_test_runner_exec(runner, test, params);
-    write(pipefd[1], &result, sizeof(result));
+    munit_test_runner_exec(runner, test, params, &report);
+    write(pipefd[1], &report, sizeof(report));
     close(pipefd[1]);
     exit(EXIT_SUCCESS);
   } else if (fork_pid == -1) {
@@ -531,32 +552,47 @@ munit_test_runner_run_with_params(MunitTestRunner* runner, const MunitTest* test
     result = MUNIT_ERROR;
   } else {
     close(pipefd[1]);
-    size_t bytes_read = read(pipefd[0], &result, sizeof(result));
-    if (bytes_read != sizeof(MunitResult)) {
-      result = MUNIT_FAIL;
+    size_t bytes_read = read(pipefd[0], &report, sizeof(report));
+    if (bytes_read != sizeof(report)) {
+      report.failed++;
     }
   }
 #else
   /* We don't (yet?) support forking on Windows */
-  result = munit_test_runner_exec(runner, test, params);
+  result = munit_test_runner_exec(runner, test, params, &report);
 #endif
 
-  switch (result) {
-    case MUNIT_OK:
-      runner->successful++;
-      break;
-    case MUNIT_ERROR:
-      runner->errored++;
-      break;
-    case MUNIT_SKIP:
-      runner->skipped++;
-      fprintf(MUNIT_OUTPUT_FILE, "SKIPPED.\n");
-      break;
-    case MUNIT_FAIL:
-      runner->failed++;
-      fprintf(MUNIT_OUTPUT_FILE, "FAILED.\n");
-      break;
+  //fprintf(MUNIT_OUTPUT_FILE, " { %d %d %d %d } ", report.failed, report.errored, report.skipped, report.successful);
+  fputs("[ ", MUNIT_OUTPUT_FILE);
+  if (report.failed > 0) {
+    fputs("FAIL ", MUNIT_OUTPUT_FILE);
+    runner->failed++;
+  } else if (report.errored > 0) {
+    fputs("ERROR", MUNIT_OUTPUT_FILE);
+    runner->errored++;
+  } else if (report.skipped > 0) {
+    fputs("SKIP ", MUNIT_OUTPUT_FILE);
+    runner->skipped++;
+  } else if (report.successful > 1) {
+    fputs("OK   ] [ Avg ", MUNIT_OUTPUT_FILE);
+    munit_print_time(MUNIT_OUTPUT_FILE, report.cpu_clock / ((double) report.successful));
+    fputs(" CPU / ", MUNIT_OUTPUT_FILE);
+    munit_print_time(MUNIT_OUTPUT_FILE, report.wall_clock / ((double) report.successful));
+    fprintf(MUNIT_OUTPUT_FILE, " Wall ]\n%-57s[ Tot ", "");
+    munit_print_time(MUNIT_OUTPUT_FILE, report.cpu_clock);
+    fputs(" CPU / ", MUNIT_OUTPUT_FILE);
+    munit_print_time(MUNIT_OUTPUT_FILE, report.wall_clock);
+    fputs(" Wall", MUNIT_OUTPUT_FILE);
+    runner->successful++;
+  } else if (report.successful > 0) {
+    fputs("OK   ] [     ", MUNIT_OUTPUT_FILE);
+    munit_print_time(MUNIT_OUTPUT_FILE, report.cpu_clock);
+    fputs(" CPU / ", MUNIT_OUTPUT_FILE);
+    munit_print_time(MUNIT_OUTPUT_FILE, report.wall_clock);
+    fputs(" Wall", MUNIT_OUTPUT_FILE);
+    runner->successful++;
   }
+  fputs(" ]\n", MUNIT_OUTPUT_FILE);
 
   return result;
 }
@@ -607,17 +643,13 @@ munit_test_runner_run_each(MunitTestRunner* runner, const MunitTest* test, Munit
       munit_test_runner_run_each(runner, test, params, next);
     }
   }
-
-  /* if (next->name != NULL) { */
-  /*   //munit_test_runner_run_each(runner, test, params, next); */
-  /* } else { */
-  /*   fprintf(stderr, "pe: %p %s\n", pe, pe->name); */
-  /* } */
 }
 
 static void
 munit_test_runner_run(MunitTestRunner* runner, const MunitTest* test) {
   munit_rand_seed(runner->seed);
+
+  fprintf(MUNIT_OUTPUT_FILE, "%-48s", test->name);
 
   if (test->parameters == NULL) {
     munit_test_runner_run_with_params(runner, test, NULL);
@@ -677,8 +709,10 @@ munit_test_runner_run(MunitTestRunner* runner, const MunitTest* test) {
 	}
       }
 
+      fputc('\n', MUNIT_OUTPUT_FILE);
       munit_test_runner_run_each(runner, test, params, params + first_wild);
     } else {
+      fputc('\n', MUNIT_OUTPUT_FILE);
       munit_test_runner_run_with_params(runner, test, params);
     }
 

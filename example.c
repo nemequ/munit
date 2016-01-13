@@ -279,7 +279,7 @@ static const MunitSuite test_suite = {
    * interesting if you make use of the PRNG to randomize your tests
    * cases a bit, or if you are doing performance testing and want to
    * average multiple runs.  0 is an alias for 1. */
-  1,
+  100,
   /* Just like MUNIT_TEST_OPTION_NONE, you can provide
    * MUNIT_SUITE_OPTION_NONE or 0 to use the default settings. */
   MUNIT_SUITE_OPTION_NONE
