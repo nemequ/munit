@@ -37,7 +37,7 @@ See [example.c](https://github.com/nemequ/munit/blob/master/example.c).
  * WTF is "WTF"? —
    [World Taekwondo Federation](http://www.wtf.org/).
  * Who uses it? — You can
-   [search GitHub](https://github.com/search?l=c&q=munit_suite_run&type=Code&utf8=%E2%9C%93).
+   [search GitHub](https://github.com/search?l=c&q=munit_suite_main&type=Code&utf8=%E2%9C%93).
    Or use another code search engine, or Google.
  * Why another unit testing framework? — I couldn't find anything that
    met all my requirements:

@@ -13,7 +13,7 @@
 /* Tests are functions that return void, and take a single void*
  * parameter.  We'll get to what that parameter is later. */
 static MunitResult
-test_compare (MUNIT_UNUSED MunitParameter params[], void* data) {
+test_compare (MUNIT_UNUSED const MunitParameter params[], void* data) {
   /* Let'ss start with the basics. */
   munit_assert(0 != 1);
 
@@ -100,7 +100,7 @@ test_compare (MUNIT_UNUSED MunitParameter params[], void* data) {
 }
 
 static MunitResult
-test_rand(MUNIT_UNUSED MunitParameter params[], MUNIT_UNUSED void* user_data) {
+test_rand(MUNIT_UNUSED const MunitParameter params[], MUNIT_UNUSED void* user_data) {
   /* One thing missing from a lot of unit testing frameworks is a
    * random number generator.  You can't just use srand/rand because
    * the implementation varies across different platforms, and it's
@@ -152,7 +152,7 @@ test_rand(MUNIT_UNUSED MunitParameter params[], MUNIT_UNUSED void* user_data) {
  * CLI to have the harness simply choose one variation at random
  * instead of running them all. */
 static MunitResult
-test_parameters(MUNIT_UNUSED MunitParameter params[], MUNIT_UNUSED void* user_data) {
+test_parameters(MUNIT_UNUSED const MunitParameter params[], MUNIT_UNUSED void* user_data) {
   /* The "foo" parameter is specified as one of the following values:
    * "one", "two", or "three". */
   const char* foo = munit_parameters_get(params, "foo");
@@ -200,7 +200,7 @@ test_parameters(MUNIT_UNUSED MunitParameter params[], MUNIT_UNUSED void* user_da
  * before the test, and the return value will be passed as the sole
  * parameter to the test function. */
 static void*
-test_compare_setup(MUNIT_UNUSED MunitParameter params[], void* user_data) {
+test_compare_setup(MUNIT_UNUSED const MunitParameter params[], void* user_data) {
   munit_assert_string_equal(user_data, "µnit");
   return (void*)(uintptr_t)0xdeadbeef;
 }
@@ -240,7 +240,7 @@ static const MunitTest test_suite_tests[] = {
      * functions. */
     test_compare,
     /* If you want, you can supply a function to set up a fixture.  If
-     * you supply NULL, the user_data parameter from munit_suite_run
+     * you supply NULL, the user_data parameter from munit_suite_main
      * will be used directly.  If, however, you provide a callback
      * here the user_data parameter will be passed to this callback,
      * and the return value from this callback will be passed to the
@@ -269,11 +269,31 @@ static const MunitTest test_suite_tests[] = {
   { NULL, NULL, NULL, NULL, 0, NULL }
 };
 
+/* If you wanted to have your test suite run other test suites you
+ * could declare an array of them.  Of course each sub-suite can
+ * contain more suites, etc. */
+/* static const MunitSuite other_suites[] = { */
+/*   { "/second", test_suite_tests, NULL, 1, 0 }, */
+/*   { NULL, NULL, NULL, 0, 0 } */
+/* }; */
+
 /* Now we'll actually declare the test suite.  You could do this in
  * the main function, or on the heap, or whatever you want. */
 static const MunitSuite test_suite = {
+  /* This string will be prepended to all test names in this suite;
+   * for example, "/example/rand" will become "/µnit/example/rand".
+   * Note that, while it doesn't really matter for the top-level
+   * suite, NULL signal the end of an array of tests; you should use
+   * an empty string ("") instead. */
+  "",
   /* The first parameter is the array of test suites. */
   test_suite_tests,
+  /* In addition to containing test cases, suites can contain other
+   * test suites.  This isn't necessary in this example, but it can be
+   * a great help to projects with lots of tests by making it easier
+   * to spread the tests across many files.  This is where you would
+   * put "other_suites" (which is commented out above). */
+  NULL,
   /* An interesting feature of µnit is that it supports automatically
    * running multiple iterations of the tests.  This is usually only
    * interesting if you make use of the PRNG to randomize your tests
@@ -292,7 +312,7 @@ static const MunitSuite test_suite = {
 #include <stdlib.h>
 
 int main(int argc, const char* argv[MUNIT_ARRAY_PARAM(argc + 1)]) {
-  /* Finally, we'll actually run our test suite!  That second argument
+ /* Finally, we'll actually run our test suite!  That second argument
    * is the user_data parameter which will be passed either to the
    * test or (if provided) the fixture setup function. */
   return munit_suite_main(&test_suite, "µnit", argc, argv);

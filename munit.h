@@ -254,8 +254,8 @@ typedef enum {
   MUNIT_TEST_OPTION_SINGLE_ITERATION = 1 << 0
 } MunitTestOptions;
 
-typedef MunitResult (* MunitTestFunc)(MunitParameter params[], void* user_data_or_fixture);
-typedef void*       (* MunitTestSetup)(MunitParameter params[], void* user_data);
+typedef MunitResult (* MunitTestFunc)(const MunitParameter params[], void* user_data_or_fixture);
+typedef void*       (* MunitTestSetup)(const MunitParameter params[], void* user_data);
 typedef void        (* MunitTestTearDown)(void* fixture);
 
 typedef struct {
@@ -271,11 +271,15 @@ typedef enum {
   MUNIT_SUITE_OPTION_NONE = 0
 } MunitSuiteOptions;
 
-typedef struct {
+typedef struct MunitSuite_ MunitSuite;
+
+struct MunitSuite_ {
+  const char*       prefix;
   const MunitTest*  tests;
+  const MunitSuite* suites;
   unsigned int      iterations;
   MunitSuiteOptions options;
-} MunitSuite;
+};
 
 int munit_suite_main(const MunitSuite* suite, void* user_data, int argc, const char* argv[MUNIT_ARRAY_PARAM(argc + 1)]);
 
