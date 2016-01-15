@@ -65,6 +65,9 @@
 #  include <windows.h>
 #  include <io.h>
 #  include <fcntl.h>
+#  if !defined(STDERR_FILENO)
+#    define STDERR_FILENO _fileno(stderr)
+#  endif
 #endif
 
 #include "munit.h"
