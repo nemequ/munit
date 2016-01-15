@@ -123,7 +123,7 @@ munit_log_ex(MunitLogLevel level, const char* filename, int line, const char* fo
  * important that it be reproducible, so bug reports have a better
  * chance of being reproducible. */
 
-#if defined(__STDC_VERSION__) && (__STDC__VERSION__ >= 201112L) && !defined(__STDC_NO_ATOMICS__)
+#if defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 201112L) && !defined(__STDC_NO_ATOMICS__)
 #  define HAVE_STDATOMIC
 #elif defined(__clang__)
 #  if __has_extension(c_atomic)
@@ -132,6 +132,7 @@ munit_log_ex(MunitLogLevel level, const char* filename, int line, const char* fo
 #endif
 
 #if defined(HAVE_STDATOMIC)
+#  include <stdatomic.h>
 #  define ATOMIC_UINT32_T _Atomic uint32_t
 #  define ATOMIC_UINT32_INIT(x) ATOMIC_VAR_INIT(x)
 #elif defined(HAVE_CLANG_ATOMICS)
@@ -147,8 +148,7 @@ munit_log_ex(MunitLogLevel level, const char* filename, int line, const char* fo
 
 static ATOMIC_UINT32_T munit_rand_state = ATOMIC_UINT32_INIT(42);
 
-#if HAVE_STDATOMIC
-#  include <stdatomic.h>
+#if defined(HAVE_STDATOMIC)
 #  define munit_atomic_store(dest, value)         atomic_store(dest, value)
 #  define munit_atomic_load(src)                  atomic_load(src)
 #  define munit_atomic_cas(dest, expected, value) atomic_compare_exchange_weak(dest, expected, value)
@@ -202,7 +202,7 @@ munit_prng_seed(uint32_t* state) {
   *state = munit_prng_uint32(&orig);
 }
 
-uint32_t
+static uint32_t
 munit_rand_uint32(void) {
   uint32_t old;
   uint32_t state;
@@ -232,7 +232,7 @@ munit_rand_memory(size_t size, uint8_t buffer[MUNIT_ARRAY_PARAM(size)]) {
 }
 
 int
-munit_rand_int() {
+munit_rand_int(void) {
 #if (INT_MAX <= INT32_MAX)
   return (int) munit_rand_uint32();
 #elif (INT_MAX == INT64_MAX)
@@ -492,7 +492,7 @@ munit_print_time(FILE* fp, double seconds) {
 
 /* Add a paramter to an array of parameters. */
 static MunitResult
-munit_parameters_add(size_t* params_size, MunitParameter* params[MUNIT_ARRAY_PARAM(*params_size)], const char* name, const char* value) {
+munit_parameters_add(size_t* params_size, MunitParameter* params[MUNIT_ARRAY_PARAM(*params_size)], char* name, char* value) {
   *params = realloc(*params, sizeof(MunitParameter) * (*params_size + 2));
   if (*params == NULL)
     return MUNIT_ERROR;
@@ -807,7 +807,7 @@ munit_test_runner_run_test_wild(MunitTestRunner* runner,
   if (pe == NULL)
     return;
 
-  for (const char** values = pe->values ; *values != NULL ; values++) {
+  for (char** values = pe->values ; *values != NULL ; values++) {
     MunitParameter* next = p + 1;
     p->value = *values;
     if (next->name == NULL) {
@@ -828,7 +828,7 @@ munit_test_runner_run_test(MunitTestRunner* runner,
 
   munit_rand_seed(runner->seed);
 
-  fprintf(MUNIT_OUTPUT_FILE, "%-" MUNIT_XSTRINGIFY(MUNIT_TEST_NAME_LEN) "s", test->name);
+  fprintf(MUNIT_OUTPUT_FILE, "%-" MUNIT_XSTRINGIFY(MUNIT_TEST_NAME_LEN) "s", test_name);
 
   if (test->parameters == NULL) {
     /* No parameters.  Simple, nice. */
@@ -872,7 +872,7 @@ munit_test_runner_run_test(MunitTestRunner* runner,
        * list of possibilities randomly. */
       if (runner->single_parameter_mode) {
         unsigned int possible = 0;
-        for (const char** vals = pe->values ; *vals != NULL ; vals++)
+        for (char** vals = pe->values ; *vals != NULL ; vals++)
           possible++;
         /* We want the tests to be reproducible, even if you're only
          * running a single test, but we don't want every test with
@@ -1031,8 +1031,8 @@ munit_suite_main(const MunitSuite* suite, void* user_data,
           fputs("Error: failed to allocate memory.\n", stderr);
           goto cleanup;
         }
-        runner.parameters[parameters_size].name = argv[arg + 1];
-        runner.parameters[parameters_size].value = argv[arg + 2];
+        runner.parameters[parameters_size].name = (char*) argv[arg + 1];
+        runner.parameters[parameters_size].value = (char*) argv[arg + 2];
         parameters_size++;
         runner.parameters[parameters_size].name = NULL;
         runner.parameters[parameters_size].value = NULL;
@@ -1103,7 +1103,7 @@ munit_suite_main(const MunitSuite* suite, void* user_data,
               puts("Any");
             } else {
               bool first = true;
-              for (const char** val = params->values ;
+              for (char** val = params->values ;
                    *val != NULL ;
                    val++ ) {
                 if(!first) {

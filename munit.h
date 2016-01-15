@@ -196,11 +196,11 @@ void munit_log_ex(MunitLogLevel level, const char* filename, int line, const cha
   do { \
     const uint8_t* munit_tmp_a_ = (const uint8_t*) a; \
     const uint8_t* munit_tmp_b_ = (const uint8_t*) b; \
-    const size_t size_ = (size_t) size; \
-    size_t pos; \
-    for (pos = 0 ; pos < size_ ; pos++) { \
-      if (MUNIT_UNLIKELY(munit_tmp_a_[pos] != munit_tmp_b_[pos])) { \
-        munit_errorf("assertion failed: memory " #a " == " #b ", at offset %" MUNIT_SIZE_MODIFIER "u", pos); \
+    const size_t munit_tmp_size_ = (size_t) size; \
+    size_t munit_tmp_pos_; \
+    for (munit_tmp_pos_ = 0 ; munit_tmp_pos_ < munit_tmp_size_ ; munit_tmp_pos_++) { \
+      if (MUNIT_UNLIKELY(munit_tmp_a_[munit_tmp_pos_] != munit_tmp_b_[munit_tmp_pos_])) { \
+        munit_errorf("assertion failed: memory " #a " == " #b ", at offset %" MUNIT_SIZE_MODIFIER "u", munit_tmp_pos_); \
         break; \
       } \
     } \
@@ -238,13 +238,13 @@ typedef enum {
 } MunitResult;
 
 typedef struct {
-  const char*  name;
-  const char** values;
+  char*  name;
+  char** values;
 } MunitParameterEnum;
 
 typedef struct {
-  const char* name;
-  const char* value;
+  char* name;
+  char* value;
 } MunitParameter;
 
 const char* munit_parameters_get(const MunitParameter params[], const char* key);
@@ -259,12 +259,12 @@ typedef void*       (* MunitTestSetup)(const MunitParameter params[], void* user
 typedef void        (* MunitTestTearDown)(void* fixture);
 
 typedef struct {
-  const char*               name;
-  MunitTestFunc             test;
-  MunitTestSetup            setup;
-  MunitTestTearDown         tear_down;
-  MunitTestOptions          options;
-  const MunitParameterEnum* parameters;
+  char*               name;
+  MunitTestFunc       test;
+  MunitTestSetup      setup;
+  MunitTestTearDown   tear_down;
+  MunitTestOptions    options;
+  MunitParameterEnum* parameters;
 } MunitTest;
 
 typedef enum {
@@ -274,9 +274,9 @@ typedef enum {
 typedef struct MunitSuite_ MunitSuite;
 
 struct MunitSuite_ {
-  const char*       prefix;
-  const MunitTest*  tests;
-  const MunitSuite* suites;
+  char*             prefix;
+  MunitTest*        tests;
+  MunitSuite*       suites;
   unsigned int      iterations;
   MunitSuiteOptions options;
 };

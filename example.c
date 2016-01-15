@@ -213,24 +213,24 @@ test_compare_tear_down(void* fixture) {
   munit_assert_ptr_equal(fixture, (void*)(uintptr_t)0xdeadbeef);
 }
 
-static const char* foo_params[] = {
+static char* foo_params[] = {
   "one", "two", "three", NULL
 };
 
-static const char* bar_params[] = {
+static char* bar_params[] = {
   "four", "five", "six", NULL
 };
 
-static const MunitParameterEnum test_params[] = {
-  { "foo", foo_params },
-  { "bar", bar_params },
-  { "baz", NULL },
+static MunitParameterEnum test_params[] = {
+  { (char*) "foo", foo_params },
+  { (char*) "bar", bar_params },
+  { (char*) "baz", NULL },
   { NULL, NULL },
 };
 
 /* Creating a test suite is pretty simple.  First, you'll need an
  * array of tests: */
-static const MunitTest test_suite_tests[] = {
+static MunitTest test_suite_tests[] = {
   {
     /* The name is just a unique human-readable way to identify the
      * test. You can use it to run a specific test if you want, but
