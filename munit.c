@@ -42,7 +42,7 @@
 /* If you have long test names you might want to consider bumping
  * this.  The result information takes 58 characters. */
 #if !defined(MUNIT_TEST_NAME_LEN)
-#  define MUNIT_TEST_NAME_LEN 48
+#  define MUNIT_TEST_NAME_LEN 32
 #endif
 
 /*** End configuration ***/
@@ -499,8 +499,7 @@ munit_parameters_get(const MunitParameter params[], const char* key) {
 
 static void
 munit_print_time(FILE* fp, double seconds) {
-  unsigned int minutes = ((unsigned int) seconds) / 60;
-  fprintf(fp, "%02u:%011.08f", minutes, seconds - (((double) minutes) * 60));
+  fprintf(fp, "%" MUNIT_TEST_TIME_FORMAT, seconds);
 }
 
 /* Add a paramter to an array of parameters. */
@@ -778,7 +777,7 @@ munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest*
     result = MUNIT_OK;
   } else if (report.successful > 0) {
     munit_test_runner_print_color(runner, "OK", '2');
-    fputs("    ] [     ", MUNIT_OUTPUT_FILE);
+    fputs("    ] [ ", MUNIT_OUTPUT_FILE);
     munit_print_time(MUNIT_OUTPUT_FILE, report.cpu_clock);
     fputs(" CPU / ", MUNIT_OUTPUT_FILE);
     munit_print_time(MUNIT_OUTPUT_FILE, report.wall_clock);
