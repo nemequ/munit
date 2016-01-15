@@ -64,6 +64,7 @@
 #else
 #  include <windows.h>
 #  include <io.h>
+#  include <fcntl.h>
 #endif
 
 #include "munit.h"
@@ -565,7 +566,19 @@ munit_str_hash(const char* name) {
   return h;
 }
 
-#if !defined(_WIN32)
+#if defined(_WIN32)
+static int
+pipe(int pipefd[2]) {
+  HANDLE readfd;
+  HANDLE writefd;
+  if (!CreatePipe(&readfd, &writefd, NULL, 0))
+    return -1;
+  pipefd[0] = _open_osfhandle((intptr_t) readfd, _O_RDONLY);
+  pipefd[1] = _open_osfhandle((intptr_t) writefd, _O_APPEND);
+  return 0;
+}
+#endif
+
 static void
 munit_splice(int from, int to) {
   uint8_t buf[1024];
@@ -578,7 +591,6 @@ munit_splice(int from, int to) {
       break;
   } while (true);
 }
-#endif
 
 /* This is the part that should be handled in the child process */
 static MunitResult
@@ -666,7 +678,6 @@ munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest*
   fflush(MUNIT_OUTPUT_FILE);
 
 #if !defined(_WIN32)
-  pid_t fork_pid;
   int pipefd[2];
   int redir_stderr[2];
   if (pipe(pipefd) != 0) {
@@ -681,7 +692,7 @@ munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest*
     goto print_result;
   }
 
-  fork_pid = fork ();
+  pid_t fork_pid = fork ();
   if (fork_pid == 0) {
     close(redir_stderr[0]);
     close(pipefd[0]);
@@ -714,8 +725,20 @@ munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest*
  print_result:
 
 #else
-  /* We don't (yet?) support forking on Windows */
-  result = munit_test_runner_exec(runner, test, params, &report);
+  int pipefd[2];
+  if (pipe(pipefd) != 0) {
+    fprintf(MUNIT_OUTPUT_FILE, "Error: unable to create pipe: %s\n", strerror(errno));
+    result = MUNIT_ERROR;
+  }
+
+  int old_stderr = dup(STDERR_FILENO);
+  dup2(pipefd[1], STDERR_FILENO);
+  close(pipefd[1]);
+
+  munit_test_runner_exec(runner, test, params, &report);
+
+  dup2(old_stderr, STDERR_FILENO);
+  close(old_stderr);
 #endif
 
   fputs("[ ", MUNIT_OUTPUT_FILE);
@@ -762,12 +785,16 @@ munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest*
     fflush(MUNIT_OUTPUT_FILE);
 #if !defined(_WIN32)
     munit_splice(redir_stderr[0], STDERR_FILENO);
-    fflush(stderr);
+#else
+    munit_splice(pipefd[0], STDERR_FILENO);
 #endif
+    fflush(stderr);
   }
 
 #if !defined(_WIN32)
   close(redir_stderr[0]);
+#else
+  close(pipefd[0]);
 #endif
 }
 
