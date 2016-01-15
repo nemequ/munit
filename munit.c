@@ -40,9 +40,9 @@
 #endif
 
 /* If you have long test names you might want to consider bumping
- * this.  The result information takes 58 characters. */
+ * this.  The result information takes 43 characters. */
 #if !defined(MUNIT_TEST_NAME_LEN)
-#  define MUNIT_TEST_NAME_LEN 32
+#  define MUNIT_TEST_NAME_LEN 37
 #endif
 
 /*** End configuration ***/
@@ -752,24 +752,24 @@ munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest*
     result = MUNIT_SKIP;
   } else if (report.successful > 1) {
     munit_test_runner_print_color(runner, "OK", '2');
-    fputs("    ] [ Avg ", MUNIT_OUTPUT_FILE);
-    munit_print_time(MUNIT_OUTPUT_FILE, report.cpu_clock / ((double) report.successful));
-    fputs(" CPU / ", MUNIT_OUTPUT_FILE);
+    fputs("    ] [ ", MUNIT_OUTPUT_FILE);
     munit_print_time(MUNIT_OUTPUT_FILE, report.wall_clock / ((double) report.successful));
-    fprintf(MUNIT_OUTPUT_FILE, " Wall ]\n         %-" MUNIT_XSTRINGIFY(MUNIT_TEST_NAME_LEN) "s[ Tot ", "");
-    munit_print_time(MUNIT_OUTPUT_FILE, report.cpu_clock);
-    fputs(" CPU / ", MUNIT_OUTPUT_FILE);
+    fputs(" / ", MUNIT_OUTPUT_FILE);
+    munit_print_time(MUNIT_OUTPUT_FILE, report.cpu_clock / ((double) report.successful));
+    fprintf(MUNIT_OUTPUT_FILE, " CPU ]\n  %-" MUNIT_XSTRINGIFY(MUNIT_TEST_NAME_LEN) "s Total: [ ", "");
     munit_print_time(MUNIT_OUTPUT_FILE, report.wall_clock);
-    fputs(" Wall", MUNIT_OUTPUT_FILE);
+    fputs(" / ", MUNIT_OUTPUT_FILE);
+    munit_print_time(MUNIT_OUTPUT_FILE, report.cpu_clock);
+    fputs(" CPU", MUNIT_OUTPUT_FILE);
     runner->report.successful++;
     result = MUNIT_OK;
   } else if (report.successful > 0) {
     munit_test_runner_print_color(runner, "OK", '2');
     fputs("    ] [ ", MUNIT_OUTPUT_FILE);
-    munit_print_time(MUNIT_OUTPUT_FILE, report.cpu_clock);
-    fputs(" CPU / ", MUNIT_OUTPUT_FILE);
     munit_print_time(MUNIT_OUTPUT_FILE, report.wall_clock);
-    fputs(" Wall", MUNIT_OUTPUT_FILE);
+    fputs(" / ", MUNIT_OUTPUT_FILE);
+    munit_print_time(MUNIT_OUTPUT_FILE, report.cpu_clock);
+    fputs(" CPU", MUNIT_OUTPUT_FILE);
     runner->report.successful++;
     result = MUNIT_OK;
   }
