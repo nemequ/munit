@@ -306,7 +306,7 @@ munit_rand_double(void) {
 
 #define MUNIT_WALL_TIME_METHOD_CLOCK_GETTIME 8
 #define MUNIT_WALL_TIME_METHOD_GETTIMEOFDAY 9
-#define MUNIT_WALL_TIME_METHOD_GETTICKCOUNT 10
+#define MUNIT_WALL_TIME_METHOD_QUERYPERFORMANCECOUNTER 10
 #define MUNIT_WALL_TIME_METHOD_MACH_ABSOLUTE_TIME 11
 
 #if defined(_POSIX_TIMERS) && (_POSIX_TIMERS > 0)
@@ -314,7 +314,7 @@ munit_rand_double(void) {
 #  define MUNIT_WALL_TIME_METHOD MUNIT_WALL_TIME_METHOD_CLOCK_GETTIME
 #elif defined(_WIN32)
 #  define MUNIT_CPU_TIME_METHOD  MUNIT_CPU_TIME_METHOD_GETPROCESSTIMES
-#  define MUNIT_WALL_TIME_METHOD MUNIT_WALL_TIME_METHOD_GETTICKCOUNT
+#  define MUNIT_WALL_TIME_METHOD MUNIT_WALL_TIME_METHOD_QUERYPERFORMANCECOUNTER
 #elif defined(__MACH__)
 #  define MUNIT_CPU_TIME_METHOD  MUNIT_CPU_TIME_METHOD_GETRUSAGE
 #  define MUNIT_WALL_TIME_METHOD MUNIT_WALL_TIME_METHOD_MACH_ABSOLUTE_TIME
@@ -343,12 +343,8 @@ typedef struct rusage MunitCpuClock;
 typedef struct timespec MunitWallClock;
 #elif MUNIT_WALL_TIME_METHOD == MUNIT_WALL_TIME_METHOD_GETTIMEOFDAY
 typedef struct timeval MunitWallClock;
-#elif MUNIT_WALL_TIME_METHOD == MUNIT_WALL_TIME_METHOD_GETTICKCOUNT
-#if _WIN32_WINNT >= 0x0600
-typedef ULONGLONG MunitWallClock;
-#else
-typedef DWORD MunitWallClock;
-#endif /* _WIN32_WINNT >= 0x0600 */
+#elif MUNIT_WALL_TIME_METHOD == MUNIT_WALL_TIME_METHOD_QUERYPERFORMANCECOUNTER
+typedef LARGE_INTEGER MunitWallClock;
 #elif MUNIT_WALL_TIME_METHOD == MUNIT_WALL_TIME_METHOD_MACH_ABSOLUTE_TIME
 #include <mach/mach.h>
 #include <mach/mach_time.h>
@@ -362,12 +358,8 @@ munit_wall_clock_get_time(MunitWallClock* wallclock) {
     fputs("Unable to get wall clock time\n", stderr);
     exit(EXIT_FAILURE);
   }
-#elif MUNIT_WALL_TIME_METHOD == MUNIT_WALL_TIME_METHOD_GETTICKCOUNT
-#if _WIN32_WINNT >= 0x0600
-  *wallclock = GetTickCount64 ();
-#else
-  *wallclock = GetTickCount ();
-#endif
+#elif MUNIT_WALL_TIME_METHOD == MUNIT_WALL_TIME_METHOD_QUERYPERFORMANCECOUNTER
+  QueryPerformanceCounter(wallclock);
 #elif MUNIT_WALL_TIME_METHOD == MUNIT_WALL_TIME_METHOD_GETTIMEOFDAY
   if (gettimeofday(wallclock, NULL) != 0) {
     fputs("Unable to get wall clock time\n", stderr);
@@ -416,16 +408,12 @@ munit_wall_clock_get_elapsed(MunitWallClock* start, MunitWallClock* end) {
   return
     (double) (end->tv_sec - start->tv_sec) +
     (((double) (end->tv_nsec - start->tv_nsec)) / 1000000000);
-#elif MUNIT_WALL_TIME_METHOD == MUNIT_WALL_TIME_METHOD_GETTICKCOUNT
-#  if _WIN32_WINNT >= 0x0600
-  return
-    (((double) *end) - ((double) *start)) * 1000;
-#  else
-  if (MUNIT_LIKELY(*end > *start))
-    return (((double) *end) - ((double) *start)) / 1000;
-  else
-    return (((double) *start) - ((double) *end)) / 1000;
-#  endif
+#elif MUNIT_WALL_TIME_METHOD == MUNIT_WALL_TIME_METHOD_QUERYPERFORMANCECOUNTER
+  LARGE_INTEGER Frequency;
+  LONGLONG elapsed_ticks;
+  QueryPerformanceFrequency(&Frequency);
+  elapsed_ticks = end->QuadPart - start->QuadPart;
+  return ((double) elapsed_ticks) / ((double) Frequency.QuadPart);
 #elif MUNIT_WALL_TIME_METHOD == MUNIT_WALL_TIME_METHOD_GETTIMEOFDAY
   return
     (double) (end->tv_sec - start->tv_sec) +
