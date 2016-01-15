@@ -582,7 +582,11 @@ pipe(int pipefd[2]) {
 static void
 munit_splice(int from, int to) {
   uint8_t buf[1024];
+#if !defined(_WIN32)
   ssize_t len = 0;
+#else
+  int len = 0;
+#endif
   do {
     len = read(from, buf, sizeof(buf));
     if (len > 0)
