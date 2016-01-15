@@ -63,6 +63,7 @@
 #  include <unistd.h>
 #else
 #  include <windows.h>
+#  include <io.h>
 #endif
 
 #include "munit.h"
@@ -481,6 +482,7 @@ typedef struct {
   bool single_parameter_mode;
   void* user_data;
   MunitReport report;
+  bool colorize;
 } MunitTestRunner;
 
 const char*
@@ -628,6 +630,14 @@ munit_test_runner_exec(MunitTestRunner* runner, const MunitTest* test, const Mun
   return result;
 }
 
+static void
+munit_test_runner_print_color(const MunitTestRunner* runner, const char* string, char color) {
+  if (runner->colorize)
+    fprintf(MUNIT_OUTPUT_FILE, "\x1b[3%cm%s\x1b[39m", color, string);
+  else
+    fputs(string, MUNIT_OUTPUT_FILE);
+}
+
 /* Run a test with the specified parameters. */
 static void
 munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest* test, const MunitParameter params[]) {
@@ -710,19 +720,22 @@ munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest*
 
   fputs("[ ", MUNIT_OUTPUT_FILE);
   if (report.failed > 0) {
-    fputs("FAIL ", MUNIT_OUTPUT_FILE);
+    munit_test_runner_print_color(runner, "FAIL", '1');
+    fputs(" ", MUNIT_OUTPUT_FILE);
     runner->report.failed++;
     result = MUNIT_FAIL;
   } else if (report.errored > 0) {
-    fputs("ERROR", MUNIT_OUTPUT_FILE);
+    munit_test_runner_print_color(runner, "ERROR", '1');
     runner->report.errored++;
     result = MUNIT_ERROR;
   } else if (report.skipped > 0) {
-    fputs("SKIP ", MUNIT_OUTPUT_FILE);
+    munit_test_runner_print_color(runner, "SKIP", '3');
+    fputs(" ", MUNIT_OUTPUT_FILE);
     runner->report.skipped++;
     result = MUNIT_SKIP;
   } else if (report.successful > 1) {
-    fputs("OK   ] [ Avg ", MUNIT_OUTPUT_FILE);
+    munit_test_runner_print_color(runner, "OK", '2');
+    fputs("    ] [ Avg ", MUNIT_OUTPUT_FILE);
     munit_print_time(MUNIT_OUTPUT_FILE, report.cpu_clock / ((double) report.successful));
     fputs(" CPU / ", MUNIT_OUTPUT_FILE);
     munit_print_time(MUNIT_OUTPUT_FILE, report.wall_clock / ((double) report.successful));
@@ -734,7 +747,8 @@ munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest*
     runner->report.successful++;
     result = MUNIT_OK;
   } else if (report.successful > 0) {
-    fputs("OK   ] [     ", MUNIT_OUTPUT_FILE);
+    munit_test_runner_print_color(runner, "OK", '2');
+    fputs("    ] [     ", MUNIT_OUTPUT_FILE);
     munit_print_time(MUNIT_OUTPUT_FILE, report.cpu_clock);
     fputs(" CPU / ", MUNIT_OUTPUT_FILE);
     munit_print_time(MUNIT_OUTPUT_FILE, report.wall_clock);
@@ -933,6 +947,8 @@ munit_print_help(int argc, const char* argv[MUNIT_ARRAY_PARAM(argc + 1)]) {
        " --log-fatal debug|info|warning|error\n"
        "           Set the level at which messages of different severities are\n"
        "           visible, or cause the test to terminate.\n"
+       " --color auto|always|never\n"
+       "           Colorize (or don't) the output.\n"
        " --help    Print this help message and exit.\n");
 }
 
@@ -955,12 +971,14 @@ munit_suite_main(const MunitSuite* suite, void* user_data,
       .errored = 0,
       .cpu_clock = 0.0,
       .wall_clock = 0.0
-    }
+    },
+    .colorize = false
   };
   size_t parameters_size = 0;
   size_t tests_size = 0;
 
   munit_prng_seed(&(runner.seed));
+  runner.colorize = isatty(fileno(MUNIT_OUTPUT_FILE));
 
   for (int arg = 1 ; arg < argc ; arg++) {
     if (strncmp("--", argv[arg], 2) == 0) {
@@ -996,6 +1014,24 @@ munit_suite_main(const MunitSuite* suite, void* user_data,
         runner.parameters[parameters_size].name = NULL;
         runner.parameters[parameters_size].value = NULL;
         arg += 2;
+      } else if (strcmp("color", argv[arg] + 2) == 0) {
+        if (arg + 1 >= argc) {
+          fputs("Error: --color requires an argument.\n", stderr);
+          goto cleanup;
+        }
+
+        if (strcmp(argv[arg + 1], "always") == 0)
+          runner.colorize = true;
+        else if (strcmp(argv[arg + 1], "never") == 0)
+          runner.colorize = false;
+        else if (strcmp(argv[arg + 1], "auto") == 0)
+          runner.colorize = isatty(fileno(MUNIT_OUTPUT_FILE));
+        else {
+          fprintf(stderr, "Error: invalid value (`%s') passed to --color.\n", argv[arg + 1]);
+          goto cleanup;
+        }
+
+        arg++;
       } else if (strcmp("help", argv[arg] + 2) == 0) {
         munit_print_help(argc, argv);
         result = EXIT_SUCCESS;
