@@ -766,7 +766,9 @@ munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest*
 #endif
   }
 
+#if !defined(_WIN32)
   close(redir_stderr[0]);
+#endif
 }
 
 static void

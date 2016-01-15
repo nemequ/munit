@@ -68,8 +68,8 @@ typedef enum {
   MUNIT_FATAL
 } MunitLogLevel;
 
-#if defined(__GNUC__)
-  __attribute__((format (printf, 4, 5)))
+#if defined(__GNUC__) && !defined(__MINGW32__)
+__attribute__((format (printf, 4, 5)))
 #endif
 void munit_log_ex(MunitLogLevel level, const char* filename, int line, const char* format, ...);
 
