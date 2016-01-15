@@ -213,6 +213,22 @@ void munit_log_ex(MunitLogLevel level, const char* filename, int line, const cha
 #define munit_assert_non_null(ptr) \
   munit_assert_cmp_ptr(ptr, !=, NULL)
 
+/*** Memory allocation ***/
+
+void* munit_malloc_ex(const char* filename, int line, size_t size);
+
+#define munit_malloc(size) \
+  munit_malloc_ex(__FILE__, __LINE__, (size))
+
+#define munit_new(type) \
+  munit_malloc(sizeof(type))
+
+#define munit_calloc(nmemb, size) \
+  munit_malloc((nmemb) * (size))
+
+#define munit_newa(nmemb, type) \
+  munit_calloc((nmemb), sizeof(type))
+
 /*** Random number generation ***/
 
 void munit_rand_seed(uint32_t seed);

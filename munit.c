@@ -110,6 +110,21 @@ munit_log_ex(MunitLogLevel level, const char* filename, int line, const char* fo
     abort();
 }
 
+/*** Memory allocation ***/
+
+void*
+munit_malloc_ex(const char* filename, int line, size_t size) {
+  if (size == 0)
+    return NULL;
+
+  void* ptr = calloc(1, size);
+  if (MUNIT_UNLIKELY(ptr == NULL)) {
+    munit_log_ex (MUNIT_LOG_ERROR, filename, line, "Failed to allocate %zu bytes.", size);
+  }
+
+  return ptr;
+}
+
 /*** PRNG stuff ***/
 
 /* This is (unless I screwed up, which is entirely possible) the
