@@ -74,8 +74,8 @@
 
 /*** Logging ***/
 
-static MunitLogLevel munit_log_level_visible = MUNIT_INFO;
-static MunitLogLevel munit_log_level_fatal = MUNIT_FATAL;
+static MunitLogLevel munit_log_level_visible = MUNIT_LOG_INFO;
+static MunitLogLevel munit_log_level_fatal = MUNIT_LOG_ERROR;
 
 void
 munit_log_ex(MunitLogLevel level, const char* filename, int line, const char* format, ...) {
@@ -83,16 +83,16 @@ munit_log_ex(MunitLogLevel level, const char* filename, int line, const char* fo
 
   if (level >= munit_log_level_visible) {
     switch(level) {
-      case MUNIT_DEBUG:
+      case MUNIT_LOG_DEBUG:
         fprintf(stderr, "DEBUG> %s:%d: ", filename, line);
         break;
-      case MUNIT_INFO:
+      case MUNIT_LOG_INFO:
         fprintf(stderr, "INFO>  %s:%d: ", filename, line);
         break;
-      case MUNIT_WARNING:
+      case MUNIT_LOG_WARNING:
         fprintf(stderr, "WARN>  %s:%d: ", filename, line);
         break;
-      case MUNIT_FATAL:
+      case MUNIT_LOG_ERROR:
         fprintf(stderr, "ERROR> %s:%d: ", filename, line);
         break;
     }
@@ -1077,13 +1077,13 @@ munit_suite_main(const MunitSuite* suite, void* user_data,
         }
 
         if (strcmp(argv[arg + 1], "debug") == 0)
-          level = MUNIT_DEBUG;
+          level = MUNIT_LOG_DEBUG;
         else if (strcmp(argv[arg + 1], "info") == 0)
-          level = MUNIT_DEBUG;
+          level = MUNIT_LOG_DEBUG;
         else if (strcmp(argv[arg + 1], "warning") == 0)
-          level = MUNIT_DEBUG;
+          level = MUNIT_LOG_DEBUG;
         else if (strcmp(argv[arg + 1], "error") == 0)
-          level = MUNIT_DEBUG;
+          level = MUNIT_LOG_DEBUG;
         else {
           fprintf(stderr, "Error: invalid log level `%s'.\n", argv[arg + 1]);
           goto cleanup;

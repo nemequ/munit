@@ -62,10 +62,10 @@ extern "C" {
 #endif
 
 typedef enum {
-  MUNIT_DEBUG,
-  MUNIT_INFO,
-  MUNIT_WARNING,
-  MUNIT_FATAL
+  MUNIT_LOG_DEBUG,
+  MUNIT_LOG_INFO,
+  MUNIT_LOG_WARNING,
+  MUNIT_LOG_ERROR
 } MunitLogLevel;
 
 #if defined(__GNUC__) && !defined(__MINGW32__)
@@ -80,7 +80,7 @@ void munit_log_ex(MunitLogLevel level, const char* filename, int line, const cha
   munit_logf(level, "%s", msg)
 
 #define munit_errorf(format, ...) \
-  munit_logf(MUNIT_FATAL, format, __VA_ARGS__)
+  munit_logf(MUNIT_LOG_ERROR, format, __VA_ARGS__)
 
 #define munit_error(msg) \
   munit_errorf("%s", msg)
