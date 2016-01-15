@@ -1137,7 +1137,7 @@ munit_suite_main(const MunitSuite* suite, void* user_data,
         goto cleanup;
       }
     } else {
-      runner.tests = realloc(runner.tests, sizeof(char*) * (tests_size + 2));
+      runner.tests = realloc((void*) runner.tests, sizeof(char*) * (tests_size + 2));
       if (runner.tests == NULL) {
         fputs("Error: failed to allocate memory.\n", stderr);
         goto cleanup;
@@ -1185,7 +1185,7 @@ munit_suite_main(const MunitSuite* suite, void* user_data,
 
  cleanup:
   free(runner.parameters);
-  free(runner.tests);
+  free((void*) runner.tests);
 
   return result;
 }
