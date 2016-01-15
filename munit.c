@@ -664,13 +664,13 @@ munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest*
   MunitReport report = { 0, 0, 0, 0, 0.0, 0.0 };
 
   if (params != NULL) {
-    unsigned int output_l = 0;
-    output_l += fputs("  ", MUNIT_OUTPUT_FILE);
+    unsigned int output_l = 2;
+    fputs("  ", MUNIT_OUTPUT_FILE);
     bool first = true;
     for (const MunitParameter* param = params ; param != NULL && param->name != NULL ; param++) {
       if (!first) {
         fputs(", ", MUNIT_OUTPUT_FILE);
-        output_l += 3;
+        output_l += 2;
       } else {
         first = false;
       }
