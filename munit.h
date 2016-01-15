@@ -221,13 +221,13 @@ void* munit_malloc_ex(const char* filename, int line, size_t size);
   munit_malloc_ex(__FILE__, __LINE__, (size))
 
 #define munit_new(type) \
-  munit_malloc(sizeof(type))
+  ((type*) munit_malloc(sizeof(type)))
 
 #define munit_calloc(nmemb, size) \
   munit_malloc((nmemb) * (size))
 
 #define munit_newa(nmemb, type) \
-  munit_calloc((nmemb), sizeof(type))
+  ((type**) munit_calloc((nmemb), sizeof(type)))
 
 /*** Random number generation ***/
 
