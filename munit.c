@@ -758,15 +758,15 @@ munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest*
   }
   fputs(" ]\n", MUNIT_OUTPUT_FILE);
 
-#if !defined(_WIN32)
   if (result == MUNIT_FAIL || result == MUNIT_ERROR) {
     fflush(MUNIT_OUTPUT_FILE);
+#if !defined(_WIN32)
     munit_splice(redir_stderr[0], STDERR_FILENO);
     fflush(stderr);
+#endif
   }
 
   close(redir_stderr[0]);
-#endif
 }
 
 static void
