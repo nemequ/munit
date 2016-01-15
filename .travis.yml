@@ -6,7 +6,7 @@ os:
   - osx
 branches:
   except:
-    - /^(wip\/)?(msvc|windows)(\-.+)?$/
+    - /^(wip\/)?(appveyor|msvc|windows)(\-.+)?$/
 env:
   matrix:
     - COMPILER=gcc-5 CFLAGS="-fsanitize=address -fsanitize=undefined"

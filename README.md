@@ -4,7 +4,8 @@
 greater.  It has no dependencies (beyond libc), is permissively
 licensed (MIT), and is easy to include into any project.
 
-[![Build Status](https://travis-ci.org/nemequ/munit.svg?branch=master)](https://travis-ci.org/nemequ/munit)
+[![Build status](https://travis-ci.org/nemequ/munit.svg?branch=master)](https://travis-ci.org/nemequ/munit)
+[![Windows build status](https://ci.appveyor.com/api/projects/status/db515g5ifcwjohq7/branch/master?svg=true)](https://ci.appveyor.com/project/quixdb/munit/branch/master)
 
 ## Features
 
