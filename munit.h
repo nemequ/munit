@@ -228,7 +228,7 @@ void* munit_malloc_ex(const char* filename, int line, size_t size);
   munit_malloc((nmemb) * (size))
 
 #define munit_newa(type, nmemb) \
-  ((type**) munit_calloc((nmemb), sizeof(type)))
+  ((type*) munit_calloc((nmemb), sizeof(type)))
 
 /*** Random number generation ***/
 
