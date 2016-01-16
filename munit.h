@@ -99,8 +99,8 @@ void munit_log_ex(MunitLogLevel level, const char* filename, int line, const cha
 
 #define munit_assert_cmp_type_full(prefix, suffix, T, fmt, a, op, b)   \
   do { \
-    T munit_tmp_a_ = (T)(a); \
-    T munit_tmp_b_ = (T)(b); \
+    T munit_tmp_a_ = (a); \
+    T munit_tmp_b_ = (b); \
     if (!(munit_tmp_a_ op munit_tmp_b_)) {                               \
       munit_errorf("assertion failed: " #a " " #op " " #b " (" prefix "%" fmt suffix " " #op " " prefix "%" fmt suffix ")", \
                    munit_tmp_a_, munit_tmp_b_); \
@@ -161,8 +161,8 @@ void munit_log_ex(MunitLogLevel level, const char* filename, int line, const cha
 
 #define munit_assert_double_equal(a, b, precision) \
   do { \
-    const double munit_tmp_a_ = (const double) (a); \
-    const double munit_tmp_b_ = (const double) (b); \
+    const double munit_tmp_a_ = (a); \
+    const double munit_tmp_b_ = (b); \
     const double munit_tmp_diff_ = ((munit_tmp_a_ - munit_tmp_b_) < 0) ? \
       -(munit_tmp_a_ - munit_tmp_b_) : \
       (munit_tmp_a_ - munit_tmp_b_); \
@@ -175,8 +175,8 @@ void munit_log_ex(MunitLogLevel level, const char* filename, int line, const cha
 #include <string.h>
 #define munit_assert_string_equal(a, b) \
   do { \
-    const char* munit_tmp_a_ = (const char*) a; \
-    const char* munit_tmp_b_ = (const char*) b; \
+    const char* munit_tmp_a_ = a; \
+    const char* munit_tmp_b_ = b; \
     if (MUNIT_UNLIKELY(strcmp (munit_tmp_a_, munit_tmp_b_) != 0)) { \
       munit_errorf("assertion failed: string " #a " == " #b " (\"%s\" == \"%s\")", \
                    munit_tmp_a_, munit_tmp_b_); \
@@ -185,8 +185,8 @@ void munit_log_ex(MunitLogLevel level, const char* filename, int line, const cha
 
 #define munit_assert_string_nequal(a, b) \
   do { \
-    const char* munit_tmp_a_ = (const char*) a; \
-    const char* munit_tmp_b_ = (const char*) b; \
+    const char* munit_tmp_a_ = a; \
+    const char* munit_tmp_b_ = b; \
     if (MUNIT_UNLIKELY(strcmp (munit_tmp_a_, munit_tmp_b_) == 0)) { \
       munit_errorf("assertion failed: string " #a " != " #b " (\"%s\" == \"%s\")", \
                    munit_tmp_a_, munit_tmp_b_); \
@@ -195,9 +195,9 @@ void munit_log_ex(MunitLogLevel level, const char* filename, int line, const cha
 
 #define munit_assert_memory_equal(size, a, b) \
   do { \
-    const uint8_t* munit_tmp_a_ = (const uint8_t*) a; \
-    const uint8_t* munit_tmp_b_ = (const uint8_t*) b; \
-    const size_t munit_tmp_size_ = (size_t) size; \
+    const uint8_t* munit_tmp_a_ = (void*) (a); \
+    const uint8_t* munit_tmp_b_ = (void*) (b); \
+    const size_t munit_tmp_size_ = (size); \
     size_t munit_tmp_pos_; \
     for (munit_tmp_pos_ = 0 ; munit_tmp_pos_ < munit_tmp_size_ ; munit_tmp_pos_++) { \
       if (MUNIT_UNLIKELY(munit_tmp_a_[munit_tmp_pos_] != munit_tmp_b_[munit_tmp_pos_])) { \
@@ -227,7 +227,7 @@ void* munit_malloc_ex(const char* filename, int line, size_t size);
 #define munit_calloc(nmemb, size) \
   munit_malloc((nmemb) * (size))
 
-#define munit_newa(nmemb, type) \
+#define munit_newa(type, nmemb) \
   ((type**) munit_calloc((nmemb), sizeof(type)))
 
 /*** Random number generation ***/
