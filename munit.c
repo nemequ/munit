@@ -588,14 +588,22 @@ static void
 munit_splice(int from, int to) {
   uint8_t buf[1024];
 #if !defined(_WIN32)
-  ssize_t len = 0;
+  ssize_t len ;
+  ssize_t bytes_written;
 #else
-  int len = 0;
+  int len;
+  int bytes_written;
 #endif
   do {
     len = read(from, buf, sizeof(buf));
-    if (len > 0)
-      write(to, buf, len);
+    if (len > 0) {
+      bytes_written = 0;
+      do {
+        bytes_written += write(to, buf + bytes_written, len - bytes_written);
+        if (bytes_written < 0)
+          break;
+      } while (bytes_written < len);
+    }
     else
       break;
   } while (true);
@@ -711,7 +719,16 @@ munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest*
 
     munit_test_runner_exec(runner, test, params, &report);
 
-    write(pipefd[1], &report, sizeof(report));
+#if !defined(_WIN32)
+    ssize_t bytes_written = 0;
+#else
+    int bytes_written = 0;
+#endif
+    do {
+      bytes_written += write(pipefd[1], ((uint8_t*) (&report)) + bytes_written, sizeof(report) - bytes_written);
+      if (bytes_written < 0)
+        exit(EXIT_FAILURE);
+    } while (bytes_written < sizeof(report));
     close(pipefd[1]);
     exit(EXIT_SUCCESS);
   } else if (fork_pid == -1) {
