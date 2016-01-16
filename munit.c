@@ -81,6 +81,17 @@
 static MunitLogLevel munit_log_level_visible = MUNIT_LOG_INFO;
 static MunitLogLevel munit_log_level_fatal = MUNIT_LOG_ERROR;
 
+/* At certain warning levels, mingw will trigger warnings about
+ * suggesting the format attribute, which we've explicity *not* set
+ * because it will then choke on our attempts to use the MS-specific
+ * I64 modifier for size_t (which we have to use since MSVC doesn't
+ * support the C99 z modifier). */
+
+#if defined(__MINGW32__) || defined(__MINGW64__)
+#  pragma GCC diagnostic push
+#  pragma GCC diagnostic ignored "-Wsuggest-attribute=format"
+#endif
+
 void
 munit_log_ex(MunitLogLevel level, const char* filename, int line, const char* format, ...) {
   va_list ap;
@@ -110,6 +121,10 @@ munit_log_ex(MunitLogLevel level, const char* filename, int line, const char* fo
   if (level >= munit_log_level_fatal)
     abort();
 }
+
+#if defined(__MINGW32__) || defined(__MINGW64__)
+#pragma GCC diagnostic pop
+#endif
 
 /*** Memory allocation ***/
 
