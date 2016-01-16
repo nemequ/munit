@@ -307,7 +307,7 @@ typedef struct MunitArgument_ MunitArgument;
 
 struct MunitArgument_ {
   char* name;
-  bool (* parse_argument)(const MunitSuite* suite, void* user_data, int* arg, int argc, const char* argv[MUNIT_ARRAY_PARAM(argc + 1)]);
+  _Bool (* parse_argument)(const MunitSuite* suite, void* user_data, int* arg, int argc, const char* argv[MUNIT_ARRAY_PARAM(argc + 1)]);
   void (* write_help)(const MunitArgument* argument, void* user_data);
 };
 
