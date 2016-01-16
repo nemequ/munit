@@ -771,20 +771,24 @@ munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest*
  print_result:
 
 #else
-  int pipefd[2];
-  if (pipe(pipefd) != 0) {
+  int pipefd[2] = { -1, -1 };
+  int old_stderr;
+  int piperes = pipe(pipefd);
+  if (piperes != 0) {
     fprintf(MUNIT_OUTPUT_FILE, "Error: unable to create pipe: %s\n", strerror(errno));
     result = MUNIT_ERROR;
+  } else {
+    old_stderr = dup(STDERR_FILENO);
+    dup2(pipefd[1], STDERR_FILENO);
+    close(pipefd[1]);
   }
-
-  int old_stderr = dup(STDERR_FILENO);
-  dup2(pipefd[1], STDERR_FILENO);
-  close(pipefd[1]);
 
   munit_test_runner_exec(runner, test, params, &report);
 
-  dup2(old_stderr, STDERR_FILENO);
-  close(old_stderr);
+  if (piperes != 0) {
+    dup2(old_stderr, STDERR_FILENO);
+    close(old_stderr);
+  }
 #endif
 
   fputs("[ ", MUNIT_OUTPUT_FILE);
@@ -840,7 +844,8 @@ munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest*
 #if !defined(_WIN32)
   close(redir_stderr[0]);
 #else
-  close(pipefd[0]);
+  if (piperes != 0)
+    close(pipefd[0]);
 #endif
 }
 
