@@ -26,6 +26,7 @@
 #define MUNIT_H
 
 #include <stdarg.h>
+#include <stdlib.h>
 
 #if defined(__cplusplus)
 extern "C" {
