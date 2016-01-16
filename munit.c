@@ -916,9 +916,9 @@ munit_test_runner_run_test(MunitTestRunner* runner,
           filled = true;
           break;
         }
-        if (filled)
-          continue;
       }
+      if (filled)
+        continue;
 
       /* Nothing from CLI, is the enum NULL/empty?  We're not a
        * fuzzer… */
