@@ -943,7 +943,7 @@ munit_test_runner_run_suite(MunitTestRunner* runner,
     if (runner->tests != NULL) { /* Specific tests were requested on the CLI */
       for (const char** test_name = runner->tests ; test_name != NULL && *test_name != NULL ; test_name++) {
         if (strncmp(pre, *test_name, pre_l) == 0 &&
-            strcmp(test->name, *test_name + pre_l) == 0) {
+            strncmp(test->name, *test_name + pre_l, strlen(*test_name + pre_l)) == 0) {
           munit_test_runner_run_test(runner, test, pre);
         }
       }
@@ -1153,21 +1153,6 @@ munit_suite_main(const MunitSuite* suite, void* user_data,
   fprintf(MUNIT_OUTPUT_FILE, "Running test suite with seed 0x%08" PRIx32 "...\n", runner.seed);
 
   munit_test_runner_run(&runner);
-
-  /* if (runner.tests == NULL) { */
-  /*   munit_suite_run2(suite, &runner, NULL, NULL); */
-  /*   for (const MunitTest* test = suite->tests ; test != NULL && test->test != NULL ; test++) { */
-  /*     munit_test_runner_run2(&runner, test, NULL); */
-  /*   } */
-  /* } else { */
-  /*   for (const char** test = runner.tests ; *test != NULL ; test++) { */
-  /*     const bool found = munit_test_runner_run_named(&runner, *test); */
-  /*     if (!found) { */
-  /*         fprintf(stderr, "Error: test `%s' not found.\n", *test); */
-  /*         goto cleanup; */
-  /*     } */
-  /*   } */
-  /* } */
 
   const unsigned int tests_run = runner.report.successful + runner.report.failed;
   const unsigned int tests_total = tests_run + runner.report.skipped;
