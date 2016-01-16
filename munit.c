@@ -234,15 +234,16 @@ void
 munit_rand_memory(size_t size, uint8_t buffer[MUNIT_ARRAY_PARAM(size)]) {
   size_t members_remaining = size / sizeof(uint32_t);
   size_t bytes_remaining = size % sizeof(uint32_t);
-  uint32_t* b = (uint32_t*) buffer;
+  uint8_t* b = buffer;
   uint32_t rv;
   while (members_remaining-- > 0) {
     rv = munit_rand_uint32();
-    memcpy(b++, &rv, sizeof(uint32_t));
+    memcpy(b, &rv, sizeof(uint32_t));
+    b += sizeof(uint32_t);
   }
   if (bytes_remaining != 0) {
     rv = munit_rand_uint32();
-    memcpy(b, &rv, sizeof(uint32_t));
+    memcpy(b, &rv, bytes_remaining);
   }
 }
 

@@ -140,6 +140,10 @@ test_rand(MUNIT_UNUSED const MunitParameter params[], MUNIT_UNUSED void* user_da
   /* random_int = munit_rand_int(); */
   /* munit_assert_cmp_int(random_int, ==, -1075473528); */
 
+  /* You can also get blobs of random memory: */
+  uint8_t data[5] = { 0, };
+  munit_rand_memory(5, data);
+
   return MUNIT_OK;
 }
 
