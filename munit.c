@@ -966,7 +966,7 @@ munit_test_runner_run(MunitTestRunner* runner) {
 }
 
 static void
-munit_print_help(int argc, const char* argv[MUNIT_ARRAY_PARAM(argc + 1)]) {
+munit_print_help(int argc, const char* argv[MUNIT_ARRAY_PARAM(argc + 1)], void* user_data, const MunitArgument arguments[]) {
   printf("USAGE: %s [OPTIONS...] [TEST...]\n\n", argv[0]);
   puts(" --seed SEED"
        "           Value used to seed the PRNG.  Must be a 32-bit integer in\n"
@@ -987,12 +987,24 @@ munit_print_help(int argc, const char* argv[MUNIT_ARRAY_PARAM(argc + 1)]) {
        "           visible, or cause the test to terminate.\n"
        " --color auto|always|never\n"
        "           Colorize (or don't) the output.\n"
-       " --help    Print this help message and exit.\n");
+       " --help    Print this help message and exit.");
+  for (const MunitArgument* arg = arguments ; arg != NULL && arg->name != NULL ; arg++)
+    arg->write_help(arg, user_data);
+}
+
+static const MunitArgument*
+munit_arguments_find(const MunitArgument arguments[], const char* name) {
+  for (const MunitArgument* arg = arguments ; arg != NULL && arg->name != NULL ; arg++)
+    if (strcmp(arg->name, name) == 0)
+      return arg;
+
+  return NULL;
 }
 
 int
-munit_suite_main(const MunitSuite* suite, void* user_data,
-                 int argc, const char* argv[MUNIT_ARRAY_PARAM(argc + 1)]) {
+munit_suite_main_custom(const MunitSuite* suite, void* user_data,
+                        int argc, const char* argv[MUNIT_ARRAY_PARAM(argc + 1)],
+                        const MunitArgument arguments[]) {
   int result = EXIT_FAILURE;
   MunitTestRunner runner = {
     .prefix = NULL,
@@ -1071,7 +1083,7 @@ munit_suite_main(const MunitSuite* suite, void* user_data,
 
         arg++;
       } else if (strcmp("help", argv[arg] + 2) == 0) {
-        munit_print_help(argc, argv);
+        munit_print_help(argc, argv, user_data, arguments);
         result = EXIT_SUCCESS;
         goto cleanup;
       } else if (strcmp("single", argv[arg] + 2) == 0) {
@@ -1135,8 +1147,14 @@ munit_suite_main(const MunitSuite* suite, void* user_data,
         result = EXIT_SUCCESS;
         goto cleanup;
       } else {
-        fprintf(stderr, "Error: unknown argument `%s'.\n", argv[arg]);
-        goto cleanup;
+        const MunitArgument* argument = munit_arguments_find(arguments, argv[arg] + 2);
+        if (argument == NULL) {
+          fprintf (stderr, "Unknown argument `%s'.\n", argv[arg]);
+          goto cleanup;
+        }
+
+        if (!argument->parse_argument(suite, user_data, &arg, argc, argv))
+          goto cleanup;
       }
     } else {
       runner.tests = realloc((void*) runner.tests, sizeof(char*) * (tests_size + 2));
@@ -1175,4 +1193,10 @@ munit_suite_main(const MunitSuite* suite, void* user_data,
   free((void*) runner.tests);
 
   return result;
+}
+
+int
+munit_suite_main(const MunitSuite* suite, void* user_data,
+                 int argc, const char* argv[MUNIT_ARRAY_PARAM(argc + 1)]) {
+  return munit_suite_main_custom(suite, user_data, argc, argv, NULL);
 }

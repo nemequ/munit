@@ -300,6 +300,22 @@ struct MunitSuite_ {
 
 int munit_suite_main(const MunitSuite* suite, void* user_data, int argc, const char* argv[MUNIT_ARRAY_PARAM(argc + 1)]);
 
+/* Note: I'm very happy with this API; it's likely to change if I
+ * figure out something better.  Suggestions welcome. */
+
+typedef struct MunitArgument_ MunitArgument;
+
+struct MunitArgument_ {
+  char* name;
+  bool (* parse_argument)(const MunitSuite* suite, void* user_data, int* arg, int argc, const char* argv[MUNIT_ARRAY_PARAM(argc + 1)]);
+  void (* write_help)(const MunitArgument* argument, void* user_data);
+};
+
+int munit_suite_main_custom(const MunitSuite* suite,
+                            void* user_data,
+                            int argc, const char* argv[MUNIT_ARRAY_PARAM(argc + 1)],
+                            const MunitArgument arguments[]);
+
 #if defined(__cplusplus)
 }
 #endif
