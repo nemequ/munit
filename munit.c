@@ -62,6 +62,8 @@
 
 #if !defined(_WIN32)
 #  include <unistd.h>
+#  include <sys/types.h>
+#  include <sys/wait.h>
 #else
 #  include <windows.h>
 #  include <io.h>
@@ -763,6 +765,7 @@ munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest*
       report.failed++;
     }
     close(pipefd[0]);
+    waitpid(fork_pid, NULL, 0);
   }
 
  print_result:
