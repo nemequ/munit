@@ -968,7 +968,7 @@ munit_test_runner_run(MunitTestRunner* runner) {
 static void
 munit_print_help(int argc, const char* argv[MUNIT_ARRAY_PARAM(argc + 1)], void* user_data, const MunitArgument arguments[]) {
   printf("USAGE: %s [OPTIONS...] [TEST...]\n\n", argv[0]);
-  puts(" --seed SEED"
+  puts(" --seed SEED\n"
        "           Value used to seed the PRNG.  Must be a 32-bit integer in\n"
        "           decimal notation with no separators (commas, decimals,\n"
        "           spaces, etc.), or hexidecimal prefixed by \"0x\".\n"
@@ -977,7 +977,9 @@ munit_print_help(int argc, const char* argv[MUNIT_ARRAY_PARAM(argc + 1)], void* 
        "           with takes a parameter of that name.  If not provided,\n"
        "           the test will be run once for each possible parameter\n"
        "           value.\n"
-       " --list    Write a list of all available tests and their possible\n"
+       " --list    Write a list of all available tests.\n"
+       " --list-params\n"
+       "           Write a list of all available tests and their possible\n"
        "           parameters.\n"
        " --single  Run each parameterized test in a single configuration instead\n"
        "           of every possible combination\n"
@@ -999,6 +1001,50 @@ munit_arguments_find(const MunitArgument arguments[], const char* name) {
       return arg;
 
   return NULL;
+}
+
+static void
+munit_suite_list_tests (const MunitSuite* suite, bool show_params, const char* prefix) {
+  size_t pre_l;
+  char* pre = munit_maybe_concat(&pre_l, (char*) prefix, (char*) suite->prefix);
+
+  for (const MunitTest* test = suite->tests ;
+       test != NULL && test->name != NULL ;
+       test++) {
+    if (pre != NULL)
+      fputs(pre, stdout);
+    puts(test->name);
+
+    if (show_params) {
+      for (const MunitParameterEnum* params = test->parameters ;
+           params != NULL && params->name != NULL ;
+           params++) {
+        fprintf(stdout, " - %s: ", params->name);
+        if (params->values == NULL) {
+          puts("Any");
+        } else {
+          bool first = true;
+          for (char** val = params->values ;
+               *val != NULL ;
+               val++ ) {
+            if(!first) {
+              fputs(", ", stdout);
+            } else {
+              first = false;
+            }
+            fputs(*val, stdout);
+          }
+          putc('\n', stdout);
+        }
+      }
+    }
+  }
+
+  for (const MunitSuite* child_suite = suite->suites ; child_suite != NULL && child_suite->prefix != NULL ; child_suite++) {
+    munit_suite_list_tests(child_suite, show_params, pre);
+  }
+
+  munit_maybe_free_concat(pre, prefix, suite->prefix);
 }
 
 int
@@ -1117,33 +1163,11 @@ munit_suite_main_custom(const MunitSuite* suite, void* user_data,
 
         arg++;
       } else if (strcmp("list", argv[arg] + 2) == 0) {
-        puts("Available tests:\n");
-        for (const MunitTest* test = suite->tests ;
-             test != NULL && test->name != NULL ;
-             test++) {
-          puts(test->name);
-          for (const MunitParameterEnum* params = test->parameters ;
-               params != NULL && params->name != NULL ;
-               params++) {
-            fprintf(stdout, " - %s: ", params->name);
-            if (params->values == NULL) {
-              puts("Any");
-            } else {
-              bool first = true;
-              for (char** val = params->values ;
-                   *val != NULL ;
-                   val++ ) {
-                if(!first) {
-                  fputs(", ", stdout);
-                } else {
-                  first = false;
-                }
-                fputs(*val, stdout);
-              }
-              putc('\n', stdout);
-            }
-          }
-        }
+        munit_suite_list_tests(suite, false, NULL);
+        result = EXIT_SUCCESS;
+        goto cleanup;
+      } else if (strcmp("list-params", argv[arg] + 2) == 0) {
+        munit_suite_list_tests(suite, true, NULL);
         result = EXIT_SUCCESS;
         goto cleanup;
       } else {
