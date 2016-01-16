@@ -733,7 +733,7 @@ munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest*
     close(pipefd[1]);
     exit(EXIT_SUCCESS);
   } else if (fork_pid == -1) {
-    fputs("Error: unable to fork()\n", MUNIT_OUTPUT_FILE);
+    fprintf(MUNIT_OUTPUT_FILE, "Error: unable to fork(): %s (%d)\n", strerror(errno), errno);
     close(pipefd[0]);
     close(pipefd[1]);
     close(redir_stderr[0]);
