@@ -728,7 +728,7 @@ munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest*
       bytes_written += write(pipefd[1], ((uint8_t*) (&report)) + bytes_written, sizeof(report) - bytes_written);
       if (bytes_written < 0)
         exit(EXIT_FAILURE);
-    } while (bytes_written < sizeof(report));
+    } while ((size_t) bytes_written < sizeof(report));
     close(pipefd[1]);
     exit(EXIT_SUCCESS);
   } else if (fork_pid == -1) {
