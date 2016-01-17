@@ -509,6 +509,8 @@ typedef struct {
   void* user_data;
   MunitReport report;
   bool colorize;
+  bool fork;
+  bool show_stderr;
 } MunitTestRunner;
 
 const char*
@@ -590,19 +592,6 @@ munit_str_hash(const char* name) {
   return h;
 }
 
-#if defined(_WIN32)
-static int
-pipe(int pipefd[2]) {
-  HANDLE readfd;
-  HANDLE writefd;
-  if (!CreatePipe(&readfd, &writefd, NULL, 0))
-    return -1;
-  pipefd[0] = _open_osfhandle((intptr_t) readfd, _O_RDONLY);
-  pipefd[1] = _open_osfhandle((intptr_t) writefd, _O_APPEND);
-  return 0;
-}
-#endif
-
 static void
 munit_splice(int from, int to) {
   uint8_t buf[1024];
@@ -659,17 +648,17 @@ munit_test_runner_exec(MunitTestRunner* runner, const MunitTest* test, const Mun
     } else {
       switch (result) {
         case MUNIT_SKIP:
-	  report->skipped++;
-	  break;
+          report->skipped++;
+          break;
         case MUNIT_FAIL:
-	  report->failed++;
-	  break;
+          report->failed++;
+          break;
         case MUNIT_ERROR:
-	  report->errored++;
-	  break;
+          report->errored++;
+          break;
         case MUNIT_OK:
         default:
-	  break;
+          break;
       }
       break;
     }
@@ -684,6 +673,31 @@ munit_test_runner_print_color(const MunitTestRunner* runner, const char* string,
     fprintf(MUNIT_OUTPUT_FILE, "\x1b[3%cm%s\x1b[39m", color, string);
   else
     fputs(string, MUNIT_OUTPUT_FILE);
+}
+
+static int
+munit_replace_stderr (FILE* stderr_buf) {
+  int orig_stderr = -1;
+  if (stderr_buf != NULL) {
+    orig_stderr = dup(STDERR_FILENO);
+
+    int errfd = fileno(stderr_buf);
+    if (MUNIT_UNLIKELY(errfd == -1)) {
+      exit (EXIT_FAILURE);
+      }
+
+    dup2(errfd, STDERR_FILENO);
+  }
+
+  return orig_stderr;
+}
+
+static void
+munit_restore_stderr(int orig_stderr) {
+  if (orig_stderr != -1) {
+    dup2(orig_stderr, STDERR_FILENO);
+    close(orig_stderr);
+  }
 }
 
 /* Run a test with the specified parameters. */
@@ -713,83 +727,78 @@ munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest*
 
   fflush(MUNIT_OUTPUT_FILE);
 
-#if !defined(_WIN32)
-  int pipefd[2];
-  int redir_stderr[2];
-  if (pipe(pipefd) != 0) {
-    fprintf(MUNIT_OUTPUT_FILE, "Error: unable to create pipe: %s\n", strerror(errno));
-    result = MUNIT_ERROR;
-  } else if (pipe(redir_stderr) != 0) {
-    fprintf(MUNIT_OUTPUT_FILE, "Error: unable to redirect stderr: %s\n", strerror(errno));
-    result = MUNIT_ERROR;
-  }
+  FILE* stderr_buf = tmpfile();
 
-  if (result != MUNIT_OK) {
+#if !defined(_WIN32)
+  if (runner->fork) {
+    int pipefd[2] = { -1, -1 };
+    if (pipe(pipefd) != 0) {
+      fprintf(stderr, "Error: unable to create pipe: %s (%d)\n", strerror(errno), errno);
+      result = MUNIT_ERROR;
+      goto print_result;
+    }
+
+    pid_t fork_pid = fork();
+    if (fork_pid == 0) {
+      close(pipefd[0]);
+
+      int orig_stderr = munit_replace_stderr(stderr_buf);
+      result = munit_test_runner_exec(runner, test, params, &report);
+      munit_restore_stderr(orig_stderr);
+
+      ssize_t bytes_written = 0;
+      do {
+        bytes_written += write(pipefd[1], ((uint8_t*) (&report)) + bytes_written, sizeof(report) - bytes_written);
+        if (bytes_written < 0) {
+          if (stderr_buf != NULL)
+            fprintf(stderr_buf, "Error: unable to write to pipe: %s (%d)\n", strerror(errno), errno);
+          exit(EXIT_FAILURE);
+        }
+      } while ((size_t) bytes_written < sizeof(report));
+
+      if (stderr_buf != NULL)
+        fclose(stderr_buf);
+      close(pipefd[1]);
+
+      exit(EXIT_SUCCESS);
+    } else if (fork_pid == -1) {
+      close(pipefd[0]);
+      close(pipefd[1]);
+      if (stderr_buf != NULL)
+        fprintf(stderr_buf, "Error: unable to fork: %s (%d)\n", strerror(errno), errno);
+      report.failed++;
+      result = MUNIT_ERROR;
+    } else {
+      close(pipefd[1]);
+      ssize_t bytes_read = 0;
+      do {
+        bytes_read += read(pipefd[0], ((uint8_t*) (&report)) + bytes_read, sizeof(report) - bytes_read);
+        if (bytes_read < 1) {
+          if (stderr_buf != NULL)
+            fprintf(stderr_buf, "Error: unable to read from pipe: %s (%d)\n", strerror(errno), errno);
+          break;
+        }
+      } while (bytes_read < (ssize_t) sizeof(report));
+
+      if (bytes_read != sizeof(report)) {
+        report.failed++;
+      }
+
+      close(pipefd[0]);
+      waitpid(fork_pid, NULL, 0);
+    }
+  } else
+#endif
+  {
+    int orig_stderr = munit_replace_stderr(stderr_buf);
+    result = munit_test_runner_exec(runner, test, params, &report);
+    munit_restore_stderr(orig_stderr);
+    /* Here just so that the label is used on Windows and we don't get
+     * a warning */
     goto print_result;
   }
 
-  pid_t fork_pid = fork ();
-  if (fork_pid == 0) {
-    close(redir_stderr[0]);
-    close(pipefd[0]);
-
-    dup2(redir_stderr[1], STDERR_FILENO);
-    close(redir_stderr[1]);
-
-    munit_test_runner_exec(runner, test, params, &report);
-
-#if !defined(_WIN32)
-    ssize_t bytes_written = 0;
-#else
-    int bytes_written = 0;
-#endif
-    do {
-      bytes_written += write(pipefd[1], ((uint8_t*) (&report)) + bytes_written, sizeof(report) - bytes_written);
-      if (bytes_written < 0)
-        exit(EXIT_FAILURE);
-    } while ((size_t) bytes_written < sizeof(report));
-    close(pipefd[1]);
-    exit(EXIT_SUCCESS);
-  } else if (fork_pid == -1) {
-    fprintf(MUNIT_OUTPUT_FILE, "Error: unable to fork(): %s (%d)\n", strerror(errno), errno);
-    close(pipefd[0]);
-    close(pipefd[1]);
-    close(redir_stderr[0]);
-    close(redir_stderr[1]);
-    result = MUNIT_ERROR;
-  } else {
-    close(pipefd[1]);
-    close(redir_stderr[1]);
-    size_t bytes_read = read(pipefd[0], &report, sizeof(report));
-    if (bytes_read != sizeof(report)) {
-      report.failed++;
-    }
-    close(pipefd[0]);
-    waitpid(fork_pid, NULL, 0);
-  }
-
  print_result:
-
-#else
-  int pipefd[2] = { -1, -1 };
-  int old_stderr;
-  int piperes = pipe(pipefd);
-  if (piperes != 0) {
-    fprintf(MUNIT_OUTPUT_FILE, "Error: unable to create pipe: %s\n", strerror(errno));
-    result = MUNIT_ERROR;
-  } else {
-    old_stderr = dup(STDERR_FILENO);
-    dup2(pipefd[1], STDERR_FILENO);
-    close(pipefd[1]);
-  }
-
-  munit_test_runner_exec(runner, test, params, &report);
-
-  if (piperes != 0) {
-    dup2(old_stderr, STDERR_FILENO);
-    close(old_stderr);
-  }
-#endif
 
   fputs("[ ", MUNIT_OUTPUT_FILE);
   if (report.failed > 0) {
@@ -831,22 +840,18 @@ munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest*
   }
   fputs(" ]\n", MUNIT_OUTPUT_FILE);
 
-  if (result == MUNIT_FAIL || result == MUNIT_ERROR) {
-    fflush(MUNIT_OUTPUT_FILE);
-#if !defined(_WIN32)
-    munit_splice(redir_stderr[0], STDERR_FILENO);
-#else
-    munit_splice(pipefd[0], STDERR_FILENO);
-#endif
-    fflush(stderr);
-  }
+  if (stderr_buf != NULL) {
+    if (result == MUNIT_FAIL || result == MUNIT_ERROR || runner->show_stderr) {
+      fflush(MUNIT_OUTPUT_FILE);
 
-#if !defined(_WIN32)
-  close(redir_stderr[0]);
-#else
-  if (piperes != 0)
-    close(pipefd[0]);
-#endif
+      rewind(stderr_buf);
+      munit_splice(fileno(stderr_buf), STDERR_FILENO);
+
+      fflush(stderr);
+    }
+
+    fclose(stderr_buf);
+  }
 }
 
 static void
@@ -1011,26 +1016,32 @@ static void
 munit_print_help(int argc, const char* argv[MUNIT_ARRAY_PARAM(argc + 1)], void* user_data, const MunitArgument arguments[]) {
   printf("USAGE: %s [OPTIONS...] [TEST...]\n\n", argv[0]);
   puts(" --seed SEED\n"
-       "           Value used to seed the PRNG.  Must be a 32-bit integer in\n"
-       "           decimal notation with no separators (commas, decimals,\n"
-       "           spaces, etc.), or hexidecimal prefixed by \"0x\".\n"
+       "           Value used to seed the PRNG.  Must be a 32-bit integer in decimal\n"
+       "           notation with no separators (commas, decimals, spaces, etc.), or\n"
+       "           hexidecimal prefixed by \"0x\".\n"
        " --param name value\n"
-       "           A parameter key/value pair which will be passed to any test\n"
-       "           with takes a parameter of that name.  If not provided,\n"
-       "           the test will be run once for each possible parameter\n"
-       "           value.\n"
+       "           A parameter key/value pair which will be passed to any test with\n"
+       "           takes a parameter of that name.  If not provided, the test will be\n"
+       "           run once for each possible parameter value.\n"
        " --list    Write a list of all available tests.\n"
        " --list-params\n"
-       "           Write a list of all available tests and their possible\n"
-       "           parameters.\n"
-       " --single  Run each parameterized test in a single configuration instead\n"
-       "           of every possible combination\n"
+       "           Write a list of all available tests and their possible parameters.\n"
+       " --single  Run each parameterized test in a single configuration instead of\n"
+       "           every possible combination\n"
        " --log-visible debug|info|warning|error\n"
        " --log-fatal debug|info|warning|error\n"
-       "           Set the level at which messages of different severities are\n"
-       "           visible, or cause the test to terminate.\n"
+       "           Set the level at which messages of different severities are visible,\n"
+       "           or cause the test to terminate.\n"
+#if !defined(_WIN32)
+       " --no-fork Do not execute tests in a child process.  If this option is supplied\n"
+       "           and a test crashes (including by failing an assertion), no further\n"
+       "           tests will be performed.\n"
+#endif
+       " --show-stderr\n"
+       "           Show data written to stderr by the tests, even if the test succeeds.\n"
        " --color auto|always|never\n"
        "           Colorize (or don't) the output.\n"
+     /* 12345678901234567890123456789012345678901234567890123456789012345678901234567890 */
        " --help    Print this help message and exit.");
   for (const MunitArgument* arg = arguments ; arg != NULL && arg->name != NULL ; arg++)
     arg->write_help(arg, user_data);
@@ -1110,7 +1121,13 @@ munit_suite_main_custom(const MunitSuite* suite, void* user_data,
       .cpu_clock = 0.0,
       .wall_clock = 0.0
     },
-    .colorize = false
+    .colorize = false,
+#if !defined(_WIN32)
+    .fork = true,
+#else
+    .fork = false,
+#endif
+    .show_stderr = false
   };
   size_t parameters_size = 0;
   size_t tests_size = 0;
@@ -1175,7 +1192,13 @@ munit_suite_main_custom(const MunitSuite* suite, void* user_data,
         result = EXIT_SUCCESS;
         goto cleanup;
       } else if (strcmp("single", argv[arg] + 2) == 0) {
-        runner.single_parameter_mode = 1;
+        runner.single_parameter_mode = true;
+      } else if (strcmp("show-stderr", argv[arg] + 2) == 0) {
+        runner.show_stderr = true;
+#if !defined(_WIN32)
+      } else if (strcmp("no-fork", argv[arg] + 2) == 0) {
+        runner.fork = false;
+#endif
       } else if (strcmp("log-visible", argv[arg] + 2) == 0 ||
                  strcmp("log-fatal", argv[arg] + 2) == 0) {
         MunitLogLevel level;
