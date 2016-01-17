@@ -41,36 +41,36 @@ Documentation is available in the form of the heavily-commented
   [search GitHub](https://github.com/search?l=c&q=munit_suite_main&type=Code&utf8=%E2%9C%93).
   Or use another code search engine, or Google.
 * Why another unit testing framework? — I couldn't find anything that
-   met all my requirements:
-   * Support for pseudo-random numbers.  I'm very fond of using a PRNG
-     to randomize tests, which helps provide good coverage without
-     taking too long.  Using libc's `rand` function isn't an option
-     because it varies by platform, making it difficult to reproduce
-     failures.
-   * Easy to integrate without adding an external dependency.  Most of
-     the frameworks with a big enough feature for my taste are spread
-     across many files, and have their own build system, which can
-     make integrating the framework with your build system difficult.
-     With µnit you simply need to add one C file and include a single
-     header.
-   * Portable.  Relying on platform-specific functionality or linker
-     trickery isn't feasible if your software is meant to be
-     cross-platform compatible.
- * µnit sucks, where can I find a *good* unit testing framework? —
-   µnit isn't for everyone; people have different requirements and
-   preferences.  Here are a few others you might want to look into:
-   * [cmocka](https://cmocka.org/) and
-     [cmockery2](https://github.com/lpabon/cmockery2) are both forks
-     of [cmockery](https://code.google.com/p/cmockery/), which is no
-     longer being developed.
-   * [glib](https://developer.gnome.org/glib/stable/glib-Testing.html)
-     has a testing framework which includes PRNG support.
-   * [greatest](https://github.com/silentbicycle/greatest)
-   * [Unity](https://github.com/ThrowTheSwitch/Unity)
-   * [minunit](https://github.com/siu/minunit)
-   * [Check](https://libcheck.github.io/check/)
-   * [cunit](http://cunit.sourceforge.net/)
-   * [Criterion](https://github.com/Snaipe/Criterion)
-   * You can
-     [search for one on GitHub](https://github.com/search?l=C&q=unit+testing&type=Repositories&utf8=%E2%9C%93);
-     some of them look interesting.
+  met all my requirements:
+  * Support for pseudo-random numbers.  I'm very fond of using a PRNG
+    to randomize tests, which helps provide good coverage without
+    taking too long.  Using libc's `rand` function isn't an option
+    because it varies by platform, making it difficult to reproduce
+    failures.
+  * Easy to integrate without adding an external dependency.  Most of
+    the frameworks with a big enough feature for my taste are spread
+    across many files, and have their own build system, which can
+    make integrating the framework with your build system difficult.
+    With µnit you simply need to add one C file and include a single
+    header.
+  * Portable.  Relying on platform-specific functionality or linker
+    trickery isn't feasible if your software is meant to be
+    cross-platform compatible.
+* µnit sucks, where can I find a *good* unit testing framework? —
+  µnit isn't for everyone; people have different requirements and
+  preferences.  Here are a few others you might want to look into:
+  * [cmocka](https://cmocka.org/) and
+    [cmockery2](https://github.com/lpabon/cmockery2) are both forks
+    of [cmockery](https://code.google.com/p/cmockery/), which is no
+    longer being developed.
+  * [glib](https://developer.gnome.org/glib/stable/glib-Testing.html)
+    has a testing framework which includes PRNG support.
+  * [greatest](https://github.com/silentbicycle/greatest)
+  * [Unity](https://github.com/ThrowTheSwitch/Unity)
+  * [minunit](https://github.com/siu/minunit)
+  * [Check](https://libcheck.github.io/check/)
+  * [cunit](http://cunit.sourceforge.net/)
+  * [Criterion](https://github.com/Snaipe/Criterion)
+  * You can
+    [search for one on GitHub](https://github.com/search?l=C&q=unit+testing&type=Repositories&utf8=%E2%9C%93);
+    some of them look interesting.
