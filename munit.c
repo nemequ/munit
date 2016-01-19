@@ -530,6 +530,7 @@ typedef struct {
   bool colorize;
   bool fork;
   bool show_stderr;
+  bool fatal_failures;
 } MunitTestRunner;
 
 const char*
@@ -909,6 +910,8 @@ munit_test_runner_run_test_wild(MunitTestRunner* runner,
     } else {
       munit_test_runner_run_test_wild(runner, test, test_name, params, next);
     }
+    if (runner->fatal_failures && (runner->report.failed != 0 || runner->report.errored != 0))
+      break;
   }
 }
 
@@ -1024,6 +1027,8 @@ munit_test_runner_run_suite(MunitTestRunner* runner,
         if (strncmp(pre, *test_name, pre_l) == 0 &&
             strncmp(test->name, *test_name + pre_l, strlen(*test_name + pre_l)) == 0) {
           munit_test_runner_run_test(runner, test, pre);
+          if (runner->fatal_failures && (runner->report.failed != 0 || runner->report.errored != 0))
+            goto cleanup;
         }
       }
     } else { /* Run all tests */
@@ -1031,10 +1036,15 @@ munit_test_runner_run_suite(MunitTestRunner* runner,
     }
   }
 
+  if (runner->fatal_failures && (runner->report.failed != 0 || runner->report.errored != 0))
+    goto cleanup;
+
   /* Run any child suites. */
   for (const MunitSuite* child_suite = suite->suites ; child_suite != NULL && child_suite->prefix != NULL ; child_suite++) {
     munit_test_runner_run_suite(runner, child_suite, pre);
   }
+
+ cleanup:
 
   munit_maybe_free_concat(pre, prefix, suite->prefix);
 }
@@ -1069,6 +1079,8 @@ munit_print_help(int argc, const char* argv[MUNIT_ARRAY_PARAM(argc + 1)], void* 
        "           and a test crashes (including by failing an assertion), no further\n"
        "           tests will be performed.\n"
 #endif
+       " --fatal-failures\n"
+       "           Stop executing tests as soon as a failure is found.\n"
        " --show-stderr\n"
        "           Show data written to stderr by the tests, even if the test succeeds.\n"
        " --color auto|always|never\n"
@@ -1159,7 +1171,8 @@ munit_suite_main_custom(const MunitSuite* suite, void* user_data,
 #else
     .fork = false,
 #endif
-    .show_stderr = false
+    .show_stderr = false,
+    .fatal_failures = false
   };
   size_t parameters_size = 0;
   size_t tests_size = 0;
@@ -1231,6 +1244,8 @@ munit_suite_main_custom(const MunitSuite* suite, void* user_data,
       } else if (strcmp("no-fork", argv[arg] + 2) == 0) {
         runner.fork = false;
 #endif
+      } else if (strcmp("fatal-failures", argv[arg] + 2) == 0) {
+        runner.fatal_failures = true;
       } else if (strcmp("log-visible", argv[arg] + 2) == 0 ||
                  strcmp("log-fatal", argv[arg] + 2) == 0) {
         MunitLogLevel level;
