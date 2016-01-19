@@ -15,7 +15,7 @@ Features µnit currently includes include:
  * Reproducible cross-platform random number generation, including
    support for supplying a seed via CLI.
  * Timing of both wall-clock and CPU time.
- * Parametric tests.
+ * Parameterized tests.
  * Nested test suites.
  * Flexible CLI.
  * Forking
@@ -30,8 +30,11 @@ Features µnit does not currently include, but some day may include
 
 ## Documentation
 
-Documentation is available in the form of the heavily-commented
-[example.c](https://github.com/nemequ/munit/blob/master/example.c).
+See [the µnit web site](https://nemequ.github.io/munit).
+
+Addutionally, there is a heavily-commented
+[example.c](https://github.com/nemequ/munit/blob/master/example.c) in
+the repository.
 
 ## FAQ
 
