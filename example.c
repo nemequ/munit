@@ -266,19 +266,19 @@ static MunitTest test_suite_tests[] = {
   /* Usually this is written in a much more compact format; all these
    * comments kind of ruin that, though.  Here is how you'll usually
    * see entries written: */
-  { "/example/rand", test_rand, NULL, NULL, 0, NULL },
+  { "/example/rand", test_rand, NULL, NULL, MUNIT_TEST_OPTION_NONE, NULL },
   /* To tell the test runner when the array is over, just add a NULL
    * entry at the end. */
-  { "/example/parameters", test_parameters, NULL, NULL, 0, test_params },
-  { NULL, NULL, NULL, NULL, 0, NULL }
+  { "/example/parameters", test_parameters, NULL, NULL, MUNIT_TEST_OPTION_NONE, test_params },
+  { NULL, NULL, NULL, NULL, MUNIT_TEST_OPTION_NONE, NULL }
 };
 
 /* If you wanted to have your test suite run other test suites you
  * could declare an array of them.  Of course each sub-suite can
  * contain more suites, etc. */
 /* static const MunitSuite other_suites[] = { */
-/*   { "/second", test_suite_tests, NULL, 1, 0 }, */
-/*   { NULL, NULL, NULL, 0, 0 } */
+/*   { "/second", test_suite_tests, NULL, 1, MUNIT_SUITE_OPTION_NONE }, */
+/*   { NULL, NULL, NULL, 0, MUNIT_SUITE_OPTION_NONE } */
 /* }; */
 
 /* Now we'll actually declare the test suite.  You could do this in
