@@ -523,6 +523,7 @@ typedef struct {
   const MunitSuite* suite;
   const char** tests;
   uint32_t seed;
+  unsigned int iterations;
   MunitParameter* parameters;
   bool single_parameter_mode;
   void* user_data;
@@ -640,12 +641,17 @@ munit_splice(int from, int to) {
 /* This is the part that should be handled in the child process */
 static MunitResult
 munit_test_runner_exec(MunitTestRunner* runner, const MunitTest* test, const MunitParameter params[], MunitReport* report) {
-  unsigned int iterations = ((test->options & MUNIT_TEST_OPTION_SINGLE_ITERATION) == 0) ?
-    runner->suite->iterations : 1;
+  unsigned int iterations = runner->iterations;
   MunitResult result = MUNIT_FAIL;
   MunitWallClock wall_clock_begin, wall_clock_end;
   MunitCpuClock cpu_clock_begin, cpu_clock_end;
   unsigned int i = 0;
+
+  if ((test->options & MUNIT_TEST_OPTION_SINGLE_ITERATION) == MUNIT_TEST_OPTION_SINGLE_ITERATION)
+    iterations = 1;
+  else if (iterations == 0)
+    iterations = runner->suite->iterations;
+
   do {
     munit_rand_seed(runner->seed);
     void* data = (test->setup == NULL) ? runner->user_data : test->setup(params, runner->user_data);
@@ -1061,6 +1067,8 @@ munit_print_help(int argc, const char* argv[MUNIT_ARRAY_PARAM(argc + 1)], void* 
        "           Value used to seed the PRNG.  Must be a 32-bit integer in decimal\n"
        "           notation with no separators (commas, decimals, spaces, etc.), or\n"
        "           hexidecimal prefixed by \"0x\".\n"
+       " --iterations N\n"
+       "           Run each test N times.  0 means the default number.\n"
        " --param name value\n"
        "           A parameter key/value pair which will be passed to any test with\n"
        "           takes a parameter of that name.  If not provided, the test will be\n"
@@ -1154,6 +1162,7 @@ munit_suite_main_custom(const MunitSuite* suite, void* user_data,
     .suite = suite,
     .tests = NULL,
     .seed = 0,
+    .iterations = 0,
     .parameters = NULL,
     .single_parameter_mode = false,
     .user_data = user_data,
@@ -1195,6 +1204,22 @@ munit_suite_main_custom(const MunitSuite* suite, void* user_data,
           goto cleanup;
         }
         runner.seed = (uint32_t) ts;
+
+        arg++;
+      } else if (strcmp("iterations", argv[arg] + 2) == 0) {
+        if (arg + 1 >= argc) {
+          fputs("Error: --iterations requires an argument.\n", stderr);
+          goto cleanup;
+        }
+
+        char* endptr;
+        unsigned long long iterations = strtoull(argv[arg + 1], &endptr, 0);
+        if (*endptr != '\0' || iterations > UINT_MAX) {
+          fputs("Error: invalid number of iterations specified.\n", stderr);
+          goto cleanup;
+        }
+
+        runner.iterations = (unsigned int) iterations;
 
         arg++;
       } else if (strcmp("param", argv[arg] + 2) == 0) {
