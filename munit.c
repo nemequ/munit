@@ -59,6 +59,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdarg.h>
+#include <setjmp.h>
 
 #if !defined(_WIN32)
 #  include <unistd.h>
@@ -78,10 +79,23 @@
 #define MUNIT_STRINGIFY(x) #x
 #define MUNIT_XSTRINGIFY(x) MUNIT_STRINGIFY(x)
 
+#if (defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 201102L)) || defined(_Thread_local)
+#  define MUNIT_THREAD_LOCAL _Thread_local
+#elif defined(__GNUC__) || defined(__INTEL_COMPILER) || defined(__SUNPRO_CC) || defined(__IBMCPP__)
+#  define MUNIT_THREAD_LOCAL __thread
+#elif defined(_WIN32)
+#  define MUNIT_THREAD_LOCAL __declspec(thread)
+#endif
+
 /*** Logging ***/
 
 static MunitLogLevel munit_log_level_visible = MUNIT_LOG_INFO;
 static MunitLogLevel munit_log_level_fatal = MUNIT_LOG_ERROR;
+
+#if defined(MUNIT_THREAD_LOCAL)
+static MUNIT_THREAD_LOCAL bool munit_error_jmp_buf_valid = false;
+static MUNIT_THREAD_LOCAL jmp_buf munit_error_jmp_buf;
+#endif
 
 /* At certain warning levels, mingw will trigger warnings about
  * suggesting the format attribute, which we've explicity *not* set
@@ -120,8 +134,13 @@ munit_log_ex(MunitLogLevel level, const char* filename, int line, const char* fo
     fputc('\n', stderr);
   }
 
-  if (level >= munit_log_level_fatal)
+  if (level >= munit_log_level_fatal) {
+#if defined(MUNIT_THREAD_LOCAL)
+    if (munit_error_jmp_buf_valid)
+      longjmp(munit_error_jmp_buf, 1);
+#endif
     abort();
+  }
 }
 
 #if defined(__MINGW32__) || defined(__MINGW64__)
@@ -791,8 +810,21 @@ munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest*
 #endif
   {
     int orig_stderr = munit_replace_stderr(stderr_buf);
+
+#if defined(MUNIT_THREAD_LOCAL)
+    if (MUNIT_UNLIKELY(setjmp(munit_error_jmp_buf) != 0)) {
+      result = MUNIT_FAIL;
+      report.failed++;
+    } else {
+      munit_error_jmp_buf_valid = true;
+      result = munit_test_runner_exec(runner, test, params, &report);
+    }
+#else
     result = munit_test_runner_exec(runner, test, params, &report);
+#endif
+
     munit_restore_stderr(orig_stderr);
+
     /* Here just so that the label is used on Windows and we don't get
      * a warning */
     goto print_result;
