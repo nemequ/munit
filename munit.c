@@ -47,8 +47,12 @@
 
 /*** End configuration ***/
 
-#define _XOPEN_SOURCE 600
-#define _POSIX_C_SOURCE 200112L
+#if defined(_POSIX_C_SOURCE) && (_POSIX_C_SOURCE < 200809L)
+#  undef _POSIX_C_SOURCE
+#endif
+#if !defined(_POSIX_C_SOURCE)
+#  define _POSIX_C_SOURCE 200809L
+#endif
 
 #include <stdint.h>
 #include <stdbool.h>
@@ -765,7 +769,7 @@ munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest*
       goto print_result;
     }
 
-    pid_t fork_pid = fork();
+    const pid_t fork_pid = fork();
     if (fork_pid == 0) {
       close(pipefd[0]);
 
@@ -801,8 +805,20 @@ munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest*
       do {
         bytes_read += read(pipefd[0], ((uint8_t*) (&report)) + bytes_read, sizeof(report) - bytes_read);
         if (bytes_read < 1) {
-          if (stderr_buf != NULL)
-            fprintf(stderr_buf, "Error: unable to read from pipe: %s (%d)\n", strerror(errno), errno);
+          if (stderr_buf != NULL) {
+            int status = 0;
+            const pid_t changed_pid = waitpid (fork_pid, &status, WNOHANG);
+
+            if ((changed_pid != fork_pid) || WIFCONTINUED(status)) {
+              fprintf(stderr_buf, "Error: unable to read from pipe: %s (%d)\n", strerror(errno), errno);
+            } else if (WIFEXITED(status)) {
+              fprintf(stderr_buf, "Error: exited unexpectedly with status %d\n", WEXITSTATUS(status));
+            } else if (WIFSIGNALED(status)) {
+              fprintf(stderr_buf, "Error: child killed by signal %d (%s)\n", WTERMSIG(status), strsignal(WTERMSIG(status)));
+            } else if (WIFSTOPPED(status)) {
+              fprintf(stderr_buf, "Error: child stopped by signal %d\n", WSTOPSIG(status));
+            }
+          }
           break;
         }
       } while (bytes_read < (ssize_t) sizeof(report));
