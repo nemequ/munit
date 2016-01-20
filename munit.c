@@ -717,6 +717,18 @@ munit_test_runner_exec(MunitTestRunner* runner, const MunitTest* test, const Mun
   return result;
 }
 
+#if defined(MUNIT_EMOTICON)
+#  define MUNIT_RESULT_STRING_OK    ":)"
+#  define MUNIT_RESULT_STRING_SKIP  ":|"
+#  define MUNIT_RESULT_STRING_FAIL  ":("
+#  define MUNIT_RESULT_STRING_ERROR ":o"
+#else
+#  define MUNIT_RESULT_STRING_OK    "OK   "
+#  define MUNIT_RESULT_STRING_SKIP  "SKIP "
+#  define MUNIT_RESULT_STRING_FAIL  "FAIL "
+#  define MUNIT_RESULT_STRING_ERROR "ERROR"
+#endif
+
 static void
 munit_test_runner_print_color(const MunitTestRunner* runner, const char* string, char color) {
   if (runner->colorize)
@@ -883,22 +895,19 @@ munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest*
 
   fputs("[ ", MUNIT_OUTPUT_FILE);
   if (report.failed > 0) {
-    munit_test_runner_print_color(runner, "FAIL", '1');
-    fputs(" ", MUNIT_OUTPUT_FILE);
+    munit_test_runner_print_color(runner, MUNIT_RESULT_STRING_FAIL, '1');
     runner->report.failed++;
     result = MUNIT_FAIL;
   } else if (report.errored > 0) {
-    munit_test_runner_print_color(runner, "ERROR", '1');
+    munit_test_runner_print_color(runner, MUNIT_RESULT_STRING_ERROR, '1');
     runner->report.errored++;
     result = MUNIT_ERROR;
   } else if (report.skipped > 0) {
-    munit_test_runner_print_color(runner, "SKIP", '3');
-    fputs(" ", MUNIT_OUTPUT_FILE);
+    munit_test_runner_print_color(runner, MUNIT_RESULT_STRING_SKIP, '3');
     runner->report.skipped++;
     result = MUNIT_SKIP;
   } else if (report.successful > 1) {
-    munit_test_runner_print_color(runner, "OK", '2');
-    fputs("   ", MUNIT_OUTPUT_FILE);
+    munit_test_runner_print_color(runner, MUNIT_RESULT_STRING_OK, '2');
 #if defined(MUNIT_ENABLE_TIMING)
     fputs(" ] [ ", MUNIT_OUTPUT_FILE);
     munit_print_time(MUNIT_OUTPUT_FILE, report.wall_clock / ((double) report.successful));
@@ -913,10 +922,9 @@ munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest*
     runner->report.successful++;
     result = MUNIT_OK;
   } else if (report.successful > 0) {
-    munit_test_runner_print_color(runner, "OK", '2');
-    fputs("   ", MUNIT_OUTPUT_FILE);
+    munit_test_runner_print_color(runner, MUNIT_RESULT_STRING_OK, '2');
 #if defined(MUNIT_ENABLE_TIMING)
-    fputs("] [ ", MUNIT_OUTPUT_FILE);
+    fputs(" ] [ ", MUNIT_OUTPUT_FILE);
     munit_print_time(MUNIT_OUTPUT_FILE, report.wall_clock);
     fputs(" / ", MUNIT_OUTPUT_FILE);
     munit_print_time(MUNIT_OUTPUT_FILE, report.cpu_clock);
