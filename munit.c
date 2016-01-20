@@ -45,6 +45,12 @@
 #  define MUNIT_TEST_NAME_LEN 37
 #endif
 
+/* If you don't like the timing information, you can disable it by
+ * defining MUNIT_DISABLE_TIMING. */
+#if !defined(MUNIT_DISABLE_TIMING)
+#  define MUNIT_ENABLE_TIMING
+#endif
+
 /*** End configuration ***/
 
 #if defined(_POSIX_C_SOURCE) && (_POSIX_C_SOURCE < 200809L)
@@ -353,6 +359,8 @@ munit_rand_double(void) {
 
 /*** Timer code ***/
 
+#if defined(MUNIT_ENABLE_TIMING)
+
 /* This section is definitely a bit messy, patches to clean it up
  * gratefully accepted. */
 
@@ -511,6 +519,8 @@ munit_cpu_clock_get_elapsed(MunitCpuClock* start, MunitCpuClock* end) {
 #endif
 }
 
+#endif /* MUNIT_ENABLE_TIMING */
+
 /*** Test suite handling ***/
 
 typedef struct {
@@ -518,8 +528,10 @@ typedef struct {
   unsigned int skipped;
   unsigned int failed;
   unsigned int errored;
+#if defined(MUNIT_ENABLE_TIMING)
   double cpu_clock;
   double wall_clock;
+#endif
 } MunitReport;
 
 typedef struct {
@@ -647,8 +659,10 @@ static MunitResult
 munit_test_runner_exec(MunitTestRunner* runner, const MunitTest* test, const MunitParameter params[], MunitReport* report) {
   unsigned int iterations = runner->iterations;
   MunitResult result = MUNIT_FAIL;
+#if defined(MUNIT_ENABLE_TIMING)
   MunitWallClock wall_clock_begin, wall_clock_end;
   MunitCpuClock cpu_clock_begin, cpu_clock_end;
+#endif
   unsigned int i = 0;
 
   if ((test->options & MUNIT_TEST_OPTION_SINGLE_ITERATION) == MUNIT_TEST_OPTION_SINGLE_ITERATION)
@@ -660,21 +674,27 @@ munit_test_runner_exec(MunitTestRunner* runner, const MunitTest* test, const Mun
     munit_rand_seed(runner->seed);
     void* data = (test->setup == NULL) ? runner->user_data : test->setup(params, runner->user_data);
 
+#if defined(MUNIT_ENABLE_TIMING)
     munit_wall_clock_get_time(&wall_clock_begin);
     munit_cpu_clock_get_time(&cpu_clock_begin);
+#endif
 
     result = test->test(params, data);
 
+#if defined(MUNIT_ENABLE_TIMING)
     munit_wall_clock_get_time(&wall_clock_end);
     munit_cpu_clock_get_time(&cpu_clock_end);
+#endif
 
     if (test->tear_down != NULL)
       test->tear_down(data);
 
     if (MUNIT_LIKELY(result == MUNIT_OK)) {
       report->successful++;
+#if defined(MUNIT_ENABLE_TIMING)
       report->wall_clock += munit_wall_clock_get_elapsed(&wall_clock_begin, &wall_clock_end);
       report->cpu_clock += munit_cpu_clock_get_elapsed(&cpu_clock_begin, &cpu_clock_end);
+#endif
     } else {
       switch (result) {
         case MUNIT_SKIP:
@@ -735,7 +755,12 @@ munit_restore_stderr(int orig_stderr) {
 static void
 munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest* test, const MunitParameter params[]) {
   MunitResult result = MUNIT_OK;
-  MunitReport report = { 0, 0, 0, 0, 0.0, 0.0 };
+  MunitReport report = {
+    0, 0, 0, 0,
+#if defined(MUNIT_ENABLE_TIMING)
+    0.0, 0.0
+#endif
+  };
 
   if (params != NULL) {
     unsigned int output_l = 2;
@@ -873,7 +898,9 @@ munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest*
     result = MUNIT_SKIP;
   } else if (report.successful > 1) {
     munit_test_runner_print_color(runner, "OK", '2');
-    fputs("    ] [ ", MUNIT_OUTPUT_FILE);
+    fputs("   ", MUNIT_OUTPUT_FILE);
+#if defined(MUNIT_ENABLE_TIMING)
+    fputs(" ] [ ", MUNIT_OUTPUT_FILE);
     munit_print_time(MUNIT_OUTPUT_FILE, report.wall_clock / ((double) report.successful));
     fputs(" / ", MUNIT_OUTPUT_FILE);
     munit_print_time(MUNIT_OUTPUT_FILE, report.cpu_clock / ((double) report.successful));
@@ -882,15 +909,19 @@ munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest*
     fputs(" / ", MUNIT_OUTPUT_FILE);
     munit_print_time(MUNIT_OUTPUT_FILE, report.cpu_clock);
     fputs(" CPU", MUNIT_OUTPUT_FILE);
+#endif
     runner->report.successful++;
     result = MUNIT_OK;
   } else if (report.successful > 0) {
     munit_test_runner_print_color(runner, "OK", '2');
-    fputs("    ] [ ", MUNIT_OUTPUT_FILE);
+    fputs("   ", MUNIT_OUTPUT_FILE);
+#if defined(MUNIT_ENABLE_TIMING)
+    fputs("] [ ", MUNIT_OUTPUT_FILE);
     munit_print_time(MUNIT_OUTPUT_FILE, report.wall_clock);
     fputs(" / ", MUNIT_OUTPUT_FILE);
     munit_print_time(MUNIT_OUTPUT_FILE, report.cpu_clock);
     fputs(" CPU", MUNIT_OUTPUT_FILE);
+#endif
     runner->report.successful++;
     result = MUNIT_OK;
   }
@@ -1188,8 +1219,10 @@ munit_suite_main_custom(const MunitSuite* suite, void* user_data,
       .skipped = 0,
       .failed = 0,
       .errored = 0,
+#if defined(MUNIT_ENABLE_TIMING)
       .cpu_clock = 0.0,
       .wall_clock = 0.0
+#endif
     },
     .colorize = false,
 #if !defined(_WIN32)
