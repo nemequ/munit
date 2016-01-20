@@ -218,11 +218,11 @@ test_compare_tear_down(void* fixture) {
 }
 
 static char* foo_params[] = {
-  "one", "two", "three", NULL
+  (char*) "one", (char*) "two", (char*) "three", NULL
 };
 
 static char* bar_params[] = {
-  "four", "five", "six", NULL
+  (char*) "four", (char*) "five", (char*) "six", NULL
 };
 
 static MunitParameterEnum test_params[] = {
@@ -239,7 +239,7 @@ static MunitTest test_suite_tests[] = {
     /* The name is just a unique human-readable way to identify the
      * test. You can use it to run a specific test if you want, but
      * usually it's mostly decorative. */
-    "/example/compare",
+    (char*) "/example/compare",
     /* You probably won't be surprised to learn that the tests are
      * functions. */
     test_compare,
@@ -266,10 +266,10 @@ static MunitTest test_suite_tests[] = {
   /* Usually this is written in a much more compact format; all these
    * comments kind of ruin that, though.  Here is how you'll usually
    * see entries written: */
-  { "/example/rand", test_rand, NULL, NULL, MUNIT_TEST_OPTION_NONE, NULL },
+  { (char*) "/example/rand", test_rand, NULL, NULL, MUNIT_TEST_OPTION_NONE, NULL },
   /* To tell the test runner when the array is over, just add a NULL
    * entry at the end. */
-  { "/example/parameters", test_parameters, NULL, NULL, MUNIT_TEST_OPTION_NONE, test_params },
+  { (char*) "/example/parameters", test_parameters, NULL, NULL, MUNIT_TEST_OPTION_NONE, test_params },
   { NULL, NULL, NULL, NULL, MUNIT_TEST_OPTION_NONE, NULL }
 };
 
@@ -289,7 +289,7 @@ static const MunitSuite test_suite = {
    * Note that, while it doesn't really matter for the top-level
    * suite, NULL signal the end of an array of tests; you should use
    * an empty string ("") instead. */
-  "",
+  (char*) "",
   /* The first parameter is the array of test suites. */
   test_suite_tests,
   /* In addition to containing test cases, suites can contain other
@@ -319,5 +319,5 @@ int main(int argc, const char* argv[MUNIT_ARRAY_PARAM(argc + 1)]) {
  /* Finally, we'll actually run our test suite!  That second argument
    * is the user_data parameter which will be passed either to the
    * test or (if provided) the fixture setup function. */
-  return munit_suite_main(&test_suite, "µnit", argc, argv);
+  return munit_suite_main(&test_suite, (void*) "µnit", argc, argv);
 }
