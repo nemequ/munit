@@ -703,9 +703,8 @@ munit_test_runner_print_color(const MunitTestRunner* runner, const char* string,
 
 static int
 munit_replace_stderr (FILE* stderr_buf) {
-  int orig_stderr = -1;
   if (stderr_buf != NULL) {
-    orig_stderr = dup(STDERR_FILENO);
+    const int orig_stderr = dup(STDERR_FILENO);
 
     int errfd = fileno(stderr_buf);
     if (MUNIT_UNLIKELY(errfd == -1)) {
@@ -713,9 +712,11 @@ munit_replace_stderr (FILE* stderr_buf) {
       }
 
     dup2(errfd, STDERR_FILENO);
+
+    return orig_stderr;
   }
 
-  return orig_stderr;
+  return -1;
 }
 
 static void
@@ -816,7 +817,7 @@ munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest*
   } else
 #endif
   {
-    int orig_stderr = munit_replace_stderr(stderr_buf);
+    const int orig_stderr = munit_replace_stderr(stderr_buf);
 
 #if defined(MUNIT_THREAD_LOCAL)
     if (MUNIT_UNLIKELY(setjmp(munit_error_jmp_buf) != 0)) {
