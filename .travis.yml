@@ -11,8 +11,7 @@ env:
   matrix:
     - COMPILER=gcc-5 CFLAGS="-fsanitize=address -fsanitize=undefined"
     - COMPILER=clang
-    # This is disabled due to an issue with the packaging, not µnit.
-    # - COMPILER=clang-3.7 CFLAGS="-fsanitize=address -fsanitize=undefined"
+    - COMPILER=clang-3.7 CFLAGS="-fsanitize=address -fsanitize=undefined"
     - COMPILER=gcc-4.9 CFLAGS="-fsanitize=address -fsanitize=undefined"
     - COMPILER=clang-3.6 CFLAGS="-fsanitize=address -fsanitize=undefined"
     - COMPILER=gcc-4.8 CFLAGS="-fsanitize=address"
