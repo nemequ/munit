@@ -817,7 +817,7 @@ munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest*
   } else
 #endif
   {
-    const int orig_stderr = munit_replace_stderr(stderr_buf);
+    const volatile int orig_stderr = munit_replace_stderr(stderr_buf);
 
 #if defined(MUNIT_THREAD_LOCAL)
     if (MUNIT_UNLIKELY(setjmp(munit_error_jmp_buf) != 0)) {
