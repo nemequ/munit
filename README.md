@@ -64,7 +64,7 @@ the repository.
   preferences.  Here are a few others you might want to look into:
   * [cmocka](https://cmocka.org/) and
     [cmockery2](https://github.com/lpabon/cmockery2) are both forks
-    of [cmockery](https://code.google.com/p/cmockery/), which is no
+    of [cmockery](https://github.com/google/cmockery), which is no
     longer being developed.
   * [glib](https://developer.gnome.org/glib/stable/glib-Testing.html)
     has a testing framework which includes PRNG support.
