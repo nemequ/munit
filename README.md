@@ -32,7 +32,7 @@ Features µnit does not currently include, but some day may include
 
 See [the µnit web site](https://nemequ.github.io/munit).
 
-Addutionally, there is a heavily-commented
+Additionally, there is a heavily-commented
 [example.c](https://github.com/nemequ/munit/blob/master/example.c) in
 the repository.
 
