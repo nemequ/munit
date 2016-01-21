@@ -112,22 +112,17 @@ test_rand(MUNIT_UNUSED const MunitParameter params[], MUNIT_UNUSED void* user_da
    * µnit's PRNG is re-seeded with the same value for each iteration
    * of each test.  The seed is retrieved from the MUNIT_SEED
    * envirnment variable or, if none is provided, one will be
-   * (pseudo-)randomly generated.
-   *
-   * You can get a random integer (between INT_MIN and INT_MAX,
-   * inclusive). */
-  int random_int = munit_rand_int();
-  munit_assert(random_int < 0 || random_int > 0);
+   * (pseudo-)randomly generated. */
+
+  /* If you need an integer in a given range */
+  int random_int = munit_rand_int_range(128, 4096);
+  munit_assert_cmp_int(random_int, >=, 128);
+  munit_assert_cmp_int(random_int, <=, 4096);
 
   /* Or maybe you want a double, between 0 and 1: */
   double random_dbl = munit_rand_double();
   munit_assert_cmp_double(random_dbl, >=, 0.0);
   munit_assert_cmp_double(random_dbl, <=, 1.0);
-
-  /* If you need an integer in a given range */
-  random_int = munit_rand_int_range(0, 255);
-  munit_assert_cmp_int(random_int, >=, 0);
-  munit_assert_cmp_int(random_int, <=, 255);
 
   /* Of course, you want to be able to reproduce bugs discovered
    * during testing, so every time the tests are run they print the
@@ -136,9 +131,8 @@ test_rand(MUNIT_UNUSED const MunitParameter params[], MUNIT_UNUSED void* user_da
    * works on different platforms.
    *
    * If you want this to pass, use 0xdeadbeef as the random seed (and
-   * uncomment it): */
-  /* random_int = munit_rand_int(); */
-  /* munit_assert_cmp_int(random_int, ==, -1075473528); */
+   * uncomment this line): */
+  /* munit_assert_cmp_uint32(munit_rand_uint32(), ==, 502814735); */
 
   /* You can also get blobs of random memory: */
   uint8_t data[5] = { 0, };

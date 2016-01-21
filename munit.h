@@ -232,12 +232,17 @@ void* munit_malloc_ex(const char* filename, int line, size_t size);
 
 /*** Random number generation ***/
 
-void munit_rand_seed(uint32_t seed);
-
-int munit_rand_int(void);
+void munit_random_seed(uint32_t seed);
+uint32_t munit_rand_uint32(void);
 int munit_rand_int_range(int min, int max);
 double munit_rand_double(void);
-void munit_rand_memory (size_t size, uint8_t buffer[MUNIT_ARRAY_PARAM(size)]);
+void munit_rand_memory(size_t size, uint8_t buffer[MUNIT_ARRAY_PARAM(size)]);
+
+void munit_random_seed(uint32_t seed);
+int munit_random_int(void);
+int munit_random_int_range(int min, int max);
+double munit_random_double(void);
+void munit_random_memory (size_t size, uint8_t buffer[MUNIT_ARRAY_PARAM(size)]);
 
 /*** Tests and Suites ***/
 

@@ -223,23 +223,49 @@ static ATOMIC_UINT32_T munit_rand_state = ATOMIC_UINT32_INIT(42);
 #  define munit_atomic_load(src)                  __atomic_load_n(src, __ATOMIC_SEQ_CST)
 #  define munit_atomic_cas(dest, expected, value) __atomic_compare_exchange_n(dest, expected, value, true, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST)
 #elif defined(__GNUC__) && (__GNUC__ >= 4)
-#  define munit_atomic_store(dest,value)          do { *dest = value; } while (0)
-#  define munit_atomic_load(src)                  (*src)
+#  define munit_atomic_store(dest,value)          do { *(dest) = (value); } while (0)
+#  define munit_atomic_load(src)                  (*(src))
 #  define munit_atomic_cas(dest, expected, value) __sync_bool_compare_and_swap(dest, *expected, value)
 #elif defined(_WIN32) /* Untested */
-#  define munit_atomic_store(dest,value)          do { *dest = value; } while (0)
-#  define munit_atomic_load(src)                  (*src)
-#  define munit_atomic_cas(dest, expected, value) InterlockedCompareExchange(dest, value, *expected)
+#  define munit_atomic_store(dest,value)          do { *(dest) = (value); } while (0)
+#  define munit_atomic_load(src)                  (*(src))
+#  define munit_atomic_cas(dest, expected, value) InterlockedCompareExchange((dest), (value), *(expected))
 #else
-#  error No atomic implementation
+#  warning No atomic implementation, PRNG will not be thread-safe
+#  define munit_atomic_store(dest, value)         do { *(dest) = (value); } while (0)
+#  define munit_atomic_load(src)                  (*(src))
+static inline _Bool
+munit_atomic_cas(ATOMIC_UINT32_T* dest, ATOMIC_UINT32_T* expected, ATOMIC_UINT32_T desired) {
+  if (*dest == *expected) {
+    *dest = desired;
+    return true;
+  } else {
+    return false;
+  }
+}
 #endif
 
 #define MUNIT_PRNG_MULTIPLIER UINT32_C(747796405)
 #define MUNIT_PRNG_INCREMENT  1729
 
 void
-  munit_rand_seed(uint32_t seed) {
+munit_rand_seed(uint32_t seed) {
   munit_atomic_store(&munit_rand_state, seed);
+}
+
+static uint32_t
+munit_rand_generate_seed(void) {
+  uint32_t state = (uint32_t) time(NULL);
+  state *= MUNIT_PRNG_MULTIPLIER + (MUNIT_PRNG_INCREMENT | 1);
+  state *= MUNIT_PRNG_MULTIPLIER + (MUNIT_PRNG_INCREMENT | 1);
+  state  = ((state >> ((state >> 28) + 4)) ^ state) * UINT32_C(277803737);
+  state ^= state >> 22;
+  return state;
+}
+
+static uint32_t
+munit_rand_next_state(uint32_t state) {
+  return state * MUNIT_PRNG_MULTIPLIER + (MUNIT_PRNG_INCREMENT | 1);
 }
 
 static uint32_t
@@ -250,110 +276,114 @@ munit_rand_from_state(uint32_t state) {
 }
 
 static uint32_t
-munit_prng_uint32(uint32_t* state) {
-  *state = *state * MUNIT_PRNG_MULTIPLIER + (MUNIT_PRNG_INCREMENT | 1);
-  uint32_t res = ((*state >> ((*state >> 28) + 4)) ^ *state) * UINT32_C(277803737);
-  res ^= res >> 22;
-  return res;
+munit_rand_state_uint32(uint32_t* state) {
+  const uint32_t old = *state;
+  *state = munit_rand_next_state(old);
+  return munit_rand_from_state(old);
 }
 
-static void
-munit_prng_seed(uint32_t* state) {
-  uint32_t orig = (uint32_t) time(NULL);
-  orig = orig * MUNIT_PRNG_MULTIPLIER + (MUNIT_PRNG_INCREMENT | 1);
-  *state = munit_prng_uint32(&orig);
-}
-
-static uint32_t
+uint32_t
 munit_rand_uint32(void) {
-  uint32_t old;
-  uint32_t state;
+  uint32_t old, state;
 
   do {
     old = munit_atomic_load(&munit_rand_state);
-    state = old * MUNIT_PRNG_MULTIPLIER + (MUNIT_PRNG_INCREMENT | 1);
+    state = munit_rand_next_state(old);
   } while (!munit_atomic_cas(&munit_rand_state, &old, state));
 
   return munit_rand_from_state(old);
 }
 
-void
-munit_rand_memory(size_t size, uint8_t buffer[MUNIT_ARRAY_PARAM(size)]) {
+static void
+munit_rand_state_memory(uint32_t* state, size_t size, uint8_t data[MUNIT_ARRAY_PARAM(size)]) {
   size_t members_remaining = size / sizeof(uint32_t);
   size_t bytes_remaining = size % sizeof(uint32_t);
-  uint8_t* b = buffer;
+  uint8_t* b = data;
   uint32_t rv;
   while (members_remaining-- > 0) {
-    rv = munit_rand_uint32();
+    rv = munit_rand_state_uint32(state);
     memcpy(b, &rv, sizeof(uint32_t));
     b += sizeof(uint32_t);
   }
   if (bytes_remaining != 0) {
-    rv = munit_rand_uint32();
+    rv = munit_rand_state_uint32(state);
     memcpy(b, &rv, bytes_remaining);
   }
 }
 
-int
-munit_rand_int(void) {
-#if (INT_MAX <= INT32_MAX)
-  return (int) munit_rand_uint32();
-#elif (INT_MAX == INT64_MAX)
-  return (((uint64_t) munit_rand_uint32 ()) << 32) | ((uint64_t) munit_rand_uint32());
-#else /* Wow, okay... */
-  int r;
-  munit_rand_memory(sizeof(r), &r);
-  return r;
-#endif
+void
+munit_rand_memory(size_t size, uint8_t data[MUNIT_ARRAY_PARAM(size)]) {
+  uint32_t old, state;
+
+  do {
+    state = old = munit_atomic_load(&munit_rand_state);
+    munit_rand_state_memory(&state, size, data);
+  } while (!munit_atomic_cas(&munit_rand_state, &old, state));
 }
 
-/* Create gtint/ugtint type which are greater than int.  Probably
- * int64_t/uint64_t. */
-#if INT_MAX < INT32_MAX
-typedef int32_t gtint;
-typedef uint32_t ugtint;
-#elif INT_MAX < INT64_MAX
-typedef int64_t gtint;
-typedef uint64_t ugtint;
-#elif defined(__GNUC__) && ((__GNUC__ > 4) || ((__GNUC__ == 4) && (__GNUC_MINOR__ >= 4)))
-typedef __int128 gtint;
-typedef unsigned __int128 ugtint;
-#else
-#error Unable to locate a type larger than int
-#endif
+static int32_t
+munit_rand_state_at_most(uint32_t* state, uint32_t salt, int32_t max) {
+  /* https://stackoverflow.com/questions/2509679/how-to-generate-a-random-number-from-within-a-range#6852396 */
+  munit_assert_cmp_int32(max, >, 0);
+  const uint64_t
+    num_bins = ((uint64_t) max) + 1,
+    num_rand = ((uint64_t) INT32_MAX) + 1,
+    bin_size = num_rand / num_bins,
+    defect   = num_rand % num_bins;
 
-static int
-munit_rand_int_range_salted(int min, int max, uint32_t salt) {
-  munit_assert(min < max);
+  int64_t x;
+  do {
+    x = (int64_t) (munit_rand_state_uint32(state) ^ salt);
+  } while (num_rand - defect <= (uint64_t) x);
 
-  if (min == max)
-    return min;
-  else if (min > max)
-    return munit_rand_int_range(max, min);
+  return (int32_t) (x / bin_size);
+}
 
-  /* TODO this is overflowy, biased, and generally buggy. */
+static int32_t
+munit_rand_at_most(uint32_t salt, int32_t max) {
+  uint32_t old, state;
+  int32_t retval;
 
-  gtint range = (max - min) + 1;
-  return ((munit_rand_uint32() ^ salt) % range) + min;
+  do {
+    state = old = munit_atomic_load(&munit_rand_state);
+    retval = munit_rand_state_at_most(&state, salt, max);
+  } while (!munit_atomic_cas(&munit_rand_state, &old, state));
+
+  return retval;
 }
 
 int
 munit_rand_int_range(int min, int max) {
-  return munit_rand_int_range_salted(min, max, 0);
-}
+  if (min > max)
+    return munit_rand_int_range(max, min);
+  if (min == 0)
+    return munit_rand_at_most(0, max);
 
-#define MUNIT_DOUBLE_TRANSFORM (2.3283064365386962890625e-10)
+  int64_t range = (((int64_t) max) - ((int64_t) min));
+  if (range < INT32_MIN)
+    range = INT32_MIN;
+  else if (range > INT32_MAX)
+    range = INT32_MAX;
+
+  return min + munit_rand_at_most(0, (int32_t) range);
+}
 
 double
 munit_rand_double(void) {
-  /* algorithm from glib, except rand_int may be negative for us.
-     This is probably buggy, too;
-     http://mumble.net/~campbell/tmp/random_real.c explains how to do
-     it right. */
-  double retval = (munit_rand_int() & (UINT_MAX / 2)) * MUNIT_DOUBLE_TRANSFORM;
-  retval = (retval + (munit_rand_int () & (UINT_MAX / 2))) * MUNIT_DOUBLE_TRANSFORM;
-  if (MUNIT_UNLIKELY(retval >= 1.0))
-    return munit_rand_double();
+  uint32_t old, state;
+  double retval = 0.0;
+
+  do {
+    state = old = munit_atomic_load(&munit_rand_state);
+
+    /* See http://mumble.net/~campbell/tmp/random_real.c for how to do
+     * this right.  Patches welcome if you feel that this is too
+     * biased. */
+    do {
+      retval = munit_rand_state_uint32(&state) / ((double) UINT32_MAX);
+    } while (MUNIT_UNLIKELY(MUNIT_UNLIKELY(retval >= 1.0) || MUNIT_UNLIKELY(retval <= 0.0)));
+  } while (!munit_atomic_cas(&munit_rand_state, &old, state));
+
   return retval;
 }
 
@@ -670,8 +700,9 @@ munit_test_runner_exec(MunitTestRunner* runner, const MunitTest* test, const Mun
   else if (iterations == 0)
     iterations = runner->suite->iterations;
 
+  munit_rand_seed(runner->seed);
+
   do {
-    munit_rand_seed(runner->seed);
     void* data = (test->setup == NULL) ? runner->user_data : test->setup(params, runner->user_data);
 
 #if defined(MUNIT_ENABLE_TIMING)
@@ -1037,7 +1068,7 @@ munit_test_runner_run_test(MunitTestRunner* runner,
          * running a single test, but we don't want every test with
          * the same number of parameters to choose the same parameter
          * number, so use the test name as a primitive salt. */
-        const int pidx = munit_rand_int_range_salted(0, possible - 1, munit_str_hash(test_name));
+	const int pidx = munit_rand_at_most(munit_str_hash(test_name), possible - 1);
         if (MUNIT_UNLIKELY(munit_parameters_add(&params_l, &params, pe->name, pe->values[pidx]) != MUNIT_OK))
           goto cleanup;
       } else {
@@ -1244,7 +1275,7 @@ munit_suite_main_custom(const MunitSuite* suite, void* user_data,
   size_t parameters_size = 0;
   size_t tests_size = 0;
 
-  munit_prng_seed(&(runner.seed));
+  runner.seed = munit_rand_generate_seed();
   runner.colorize = isatty(fileno(MUNIT_OUTPUT_FILE));
 
   for (int arg = 1 ; arg < argc ; arg++) {
