@@ -1,6 +1,6 @@
 # µnit
 
-µnit is a small but full-featured unit testing framework for.  It has
+µnit is a small but full-featured unit testing framework for C.  It has
 no dependencies (beyond libc), is permissively licensed (MIT), and is
 easy to include into any project.
 
