@@ -232,7 +232,7 @@ void* munit_malloc_ex(const char* filename, int line, size_t size);
 
 /*** Random number generation ***/
 
-void munit_random_seed(uint32_t seed);
+void munit_rand_seed(uint32_t seed);
 uint32_t munit_rand_uint32(void);
 int munit_rand_int_range(int min, int max);
 double munit_rand_double(void);
