@@ -195,8 +195,8 @@ void munit_log_ex(MunitLogLevel level, const char* filename, int line, const cha
 
 #define munit_assert_memory_equal(size, a, b) \
   do { \
-    const uint8_t* munit_tmp_a_ = (void*) (a); \
-    const uint8_t* munit_tmp_b_ = (void*) (b); \
+    const uint8_t* munit_tmp_a_ = (const void*) (a); \
+    const uint8_t* munit_tmp_b_ = (const void*) (b); \
     const size_t munit_tmp_size_ = (size); \
     size_t munit_tmp_pos_; \
     for (munit_tmp_pos_ = 0 ; munit_tmp_pos_ < munit_tmp_size_ ; munit_tmp_pos_++) { \
