@@ -246,26 +246,11 @@ munit_atomic_cas(ATOMIC_UINT32_T* dest, ATOMIC_UINT32_T* expected, ATOMIC_UINT32
 #endif
 
 #define MUNIT_PRNG_MULTIPLIER UINT32_C(747796405)
-#define MUNIT_PRNG_INCREMENT  1729
-
-void
-munit_rand_seed(uint32_t seed) {
-  munit_atomic_store(&munit_rand_state, seed);
-}
-
-static uint32_t
-munit_rand_generate_seed(void) {
-  uint32_t state = (uint32_t) time(NULL);
-  state *= MUNIT_PRNG_MULTIPLIER + (MUNIT_PRNG_INCREMENT | 1);
-  state *= MUNIT_PRNG_MULTIPLIER + (MUNIT_PRNG_INCREMENT | 1);
-  state  = ((state >> ((state >> 28) + 4)) ^ state) * UINT32_C(277803737);
-  state ^= state >> 22;
-  return state;
-}
+#define MUNIT_PRNG_INCREMENT  UINT32_C(1729)
 
 static uint32_t
 munit_rand_next_state(uint32_t state) {
-  return state * MUNIT_PRNG_MULTIPLIER + (MUNIT_PRNG_INCREMENT | 1);
+  return state * MUNIT_PRNG_MULTIPLIER + MUNIT_PRNG_INCREMENT;
 }
 
 static uint32_t
@@ -273,6 +258,18 @@ munit_rand_from_state(uint32_t state) {
   uint32_t res = ((state >> ((state >> 28) + 4)) ^ state) * UINT32_C(277803737);
   res ^= res >> 22;
   return res;
+}
+
+void
+munit_rand_seed(uint32_t seed) {
+  uint32_t state = munit_rand_next_state(seed + MUNIT_PRNG_INCREMENT);
+  munit_atomic_store(&munit_rand_state, state);
+}
+
+static uint32_t
+munit_rand_generate_seed(void) {
+  uint32_t state = munit_rand_next_state((uint32_t) time(NULL) + MUNIT_PRNG_INCREMENT);
+  return munit_rand_from_state(state);
 }
 
 static uint32_t
