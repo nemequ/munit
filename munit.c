@@ -166,7 +166,7 @@ munit_malloc_ex(const char* filename, int line, size_t size) {
 
   void* ptr = calloc(1, size);
   if (MUNIT_UNLIKELY(ptr == NULL)) {
-    munit_log_ex (MUNIT_LOG_ERROR, filename, line, "Failed to allocate %zu bytes.", size);
+    munit_log_ex (MUNIT_LOG_ERROR, filename, line, "Failed to allocate %" MUNIT_SIZE_MODIFIER "u bytes.", size);
   }
 
   return ptr;
