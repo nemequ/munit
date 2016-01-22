@@ -130,9 +130,11 @@ test_rand(MUNIT_UNUSED const MunitParameter params[], MUNIT_UNUSED void* user_da
    * that random seed in the MUNIT_SEED environment variable; it even
    * works on different platforms.
    *
-   * If you want this to pass, use 0xdeadbeef as the random seed (and
-   * uncomment this line): */
-  /* munit_assert_cmp_uint32(munit_rand_uint32(), ==, 502814735); */
+   * If you want this to pass, use 0xdeadbeef as the random seed and
+   * uncomment the next line of code.  Note that the PRNG is not
+   * re-seeded between iterations of the same test, so this will only
+   * work on the first iteration. */
+  /* munit_assert_cmp_uint32(munit_rand_uint32(), ==, 1306447409); */
 
   /* You can also get blobs of random memory: */
   uint8_t data[5] = { 0, };
