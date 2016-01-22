@@ -200,7 +200,7 @@ void munit_log_ex(MunitLogLevel level, const char* filename, int line, const cha
     const size_t munit_tmp_size_ = (size); \
     size_t munit_tmp_pos_; \
     for (munit_tmp_pos_ = 0 ; munit_tmp_pos_ < munit_tmp_size_ ; munit_tmp_pos_++) { \
-      if (MUNIT_UNLIKELY(munit_tmp_a_[munit_tmp_pos_] != munit_tmp_b_[munit_tmp_pos_])) { \
+      if (MUNIT_UNLIKELY(memcmp(munit_tmp_a_ + munit_tmp_pos_, munit_tmp_b_ + munit_tmp_pos_, 1) != 0)) { \
         munit_errorf("assertion failed: memory " #a " == " #b ", at offset %" MUNIT_SIZE_MODIFIER "u", munit_tmp_pos_); \
         break; \
       } \
