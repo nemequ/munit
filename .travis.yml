@@ -6,6 +6,7 @@ os:
   - osx
 branches:
   except:
+    - master
     - /^(wip\/)?(appveyor|msvc|windows)(\-.+)?$/
 env:
   matrix:
