@@ -118,31 +118,57 @@ static MUNIT_THREAD_LOCAL jmp_buf munit_error_jmp_buf;
 #  pragma GCC diagnostic ignored "-Wsuggest-attribute=format"
 #endif
 
-void
-munit_log_ex(MunitLogLevel level, const char* filename, int line, const char* format, ...) {
+static void
+munit_logf_exv(MunitLogLevel level, FILE* fp, const char* filename, int line, const char* format, va_list ap) {
+  if (level < munit_log_level_visible)
+    return;
+
+  switch (level) {
+    case MUNIT_LOG_DEBUG:
+      fputs("Debug", fp);
+      break;
+    case MUNIT_LOG_INFO:
+      fputs("Info", fp);
+      break;
+    case MUNIT_LOG_WARNING:
+      fputs("Warning", fp);
+      break;
+    case MUNIT_LOG_ERROR:
+      fputs("Error", fp);
+      break;
+    default:
+      munit_logf_ex(MUNIT_LOG_ERROR, filename, line, "Invalid log level (%d)", level);
+      return;
+  }
+
+  fputs(": ", fp);
+  if (filename != NULL)
+    fprintf(fp, "%s:%d: ", filename, line);
+  vfprintf(fp, format, ap);
+  fputc('\n', fp);
+}
+
+static void
+munit_logf_internal(MunitLogLevel level, FILE* fp, const char* format, ...) {
   va_list ap;
 
-  if (level >= munit_log_level_visible) {
-    switch(level) {
-      case MUNIT_LOG_DEBUG:
-        fprintf(stderr, "DEBUG> %s:%d: ", filename, line);
-        break;
-      case MUNIT_LOG_INFO:
-        fprintf(stderr, "INFO>  %s:%d: ", filename, line);
-        break;
-      case MUNIT_LOG_WARNING:
-        fprintf(stderr, "WARN>  %s:%d: ", filename, line);
-        break;
-      case MUNIT_LOG_ERROR:
-        fprintf(stderr, "ERROR> %s:%d: ", filename, line);
-        break;
-    }
+  va_start(ap, format);
+  munit_logf_exv(level, fp, NULL, 0, format, ap);
+  va_end(ap);
+}
 
-    va_start(ap, format);
-    vfprintf(stderr, format, ap);
-    va_end(ap);
-    fputc('\n', stderr);
-  }
+static void
+munit_log_internal(MunitLogLevel level, FILE* fp, const char* message) {
+  munit_logf_internal(level, fp, "%s", message);
+}
+
+void
+munit_logf_ex(MunitLogLevel level, const char* filename, int line, const char* format, ...) {
+  va_list ap;
+
+  va_start(ap, format);
+  munit_logf_exv(level, stderr, filename, line, format, ap);
+  va_end(ap);
 
   if (level >= munit_log_level_fatal) {
 #if defined(MUNIT_THREAD_LOCAL)
@@ -166,7 +192,7 @@ munit_malloc_ex(const char* filename, int line, size_t size) {
 
   void* ptr = calloc(1, size);
   if (MUNIT_UNLIKELY(ptr == NULL)) {
-    munit_log_ex (MUNIT_LOG_ERROR, filename, line, "Failed to allocate %" MUNIT_SIZE_MODIFIER "u bytes.", size);
+    munit_logf_ex (MUNIT_LOG_ERROR, filename, line, "Failed to allocate %" MUNIT_SIZE_MODIFIER "u bytes.", size);
   }
 
   return ptr;
@@ -829,7 +855,7 @@ munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest*
   if (runner->fork) {
     int pipefd[2] = { -1, -1 };
     if (pipe(pipefd) != 0) {
-      fprintf(stderr, "Error: unable to create pipe: %s (%d)\n", strerror(errno), errno);
+      munit_logf_internal(MUNIT_LOG_ERROR, stderr, "unable to create pipe: %s (%d)", strerror(errno), errno);
       result = MUNIT_ERROR;
       goto print_result;
     }
@@ -847,7 +873,7 @@ munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest*
         bytes_written += write(pipefd[1], ((uint8_t*) (&report)) + bytes_written, sizeof(report) - bytes_written);
         if (bytes_written < 0) {
           if (stderr_buf != NULL)
-            fprintf(stderr_buf, "Error: unable to write to pipe: %s (%d)\n", strerror(errno), errno);
+	    munit_logf_internal(MUNIT_LOG_ERROR, stderr_buf, "unable to write to pipe: %s (%d)", strerror(errno), errno);
           exit(EXIT_FAILURE);
         }
       } while ((size_t) bytes_written < sizeof(report));
@@ -861,7 +887,7 @@ munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest*
       close(pipefd[0]);
       close(pipefd[1]);
       if (stderr_buf != NULL)
-        fprintf(stderr_buf, "Error: unable to fork: %s (%d)\n", strerror(errno), errno);
+	munit_logf_internal(MUNIT_LOG_ERROR, stderr_buf, "unable to write to fork: %s (%d)", strerror(errno), errno);
       report.failed++;
       result = MUNIT_ERROR;
     } else {
@@ -875,13 +901,13 @@ munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest*
             const pid_t changed_pid = waitpid (fork_pid, &status, WNOHANG);
 
             if ((changed_pid != fork_pid) || WIFCONTINUED(status)) {
-              fprintf(stderr_buf, "Error: unable to read from pipe: %s (%d)\n", strerror(errno), errno);
+	      munit_logf_internal(MUNIT_LOG_ERROR, stderr_buf, "unable to read from pipe: %s (%d)", strerror(errno), errno);
             } else if (WIFEXITED(status)) {
-              fprintf(stderr_buf, "Error: exited unexpectedly with status %d\n", WEXITSTATUS(status));
+	      munit_logf_internal(MUNIT_LOG_ERROR, stderr_buf, "child exited unexpectedly with status %d", WEXITSTATUS(status));
             } else if (WIFSIGNALED(status)) {
-              fprintf(stderr_buf, "Error: child killed by signal %d (%s)\n", WTERMSIG(status), strsignal(WTERMSIG(status)));
+	      munit_logf_internal(MUNIT_LOG_ERROR, stderr_buf, "child killed by signal %d (%s)", WTERMSIG(status), strsignal(WTERMSIG(status)));
             } else if (WIFSTOPPED(status)) {
-              fprintf(stderr_buf, "Error: child stopped by signal %d\n", WSTOPSIG(status));
+	      munit_logf_internal(MUNIT_LOG_ERROR, stderr_buf, "child stopped by signal %d", WSTOPSIG(status));
             }
           }
           break;
@@ -1279,14 +1305,14 @@ munit_suite_main_custom(const MunitSuite* suite, void* user_data,
     if (strncmp("--", argv[arg], 2) == 0) {
       if (strcmp("seed", argv[arg] + 2) == 0) {
         if (arg + 1 >= argc) {
-          fputs("Error: --seed requires an argument.\n", stderr);
+	  munit_logf_internal(MUNIT_LOG_ERROR, stderr, "%s requires an argument", argv[arg]);
           goto cleanup;
         }
 
         char* envptr = NULL;
         unsigned long long ts = strtoull(argv[arg + 1], &envptr, 0);
         if (*envptr != '\0' || ts > UINT32_MAX) {
-          fprintf(stderr, "Error: invalid seed (%s) specified.\n", argv[arg + 1]);
+	  munit_logf_internal(MUNIT_LOG_ERROR, stderr, "invalid value ('%s') passed to %s", argv[arg + 1], argv[arg]);
           goto cleanup;
         }
         runner.seed = (uint32_t) ts;
@@ -1294,14 +1320,14 @@ munit_suite_main_custom(const MunitSuite* suite, void* user_data,
         arg++;
       } else if (strcmp("iterations", argv[arg] + 2) == 0) {
         if (arg + 1 >= argc) {
-          fputs("Error: --iterations requires an argument.\n", stderr);
+	  munit_logf_internal(MUNIT_LOG_ERROR, stderr, "%s requires an argument", argv[arg]);
           goto cleanup;
         }
 
         char* endptr;
         unsigned long long iterations = strtoull(argv[arg + 1], &endptr, 0);
         if (*endptr != '\0' || iterations > UINT_MAX) {
-          fputs("Error: invalid number of iterations specified.\n", stderr);
+	  munit_logf_internal(MUNIT_LOG_ERROR, stderr, "invalid value ('%s') passed to %s", argv[arg + 1], argv[arg]);
           goto cleanup;
         }
 
@@ -1310,13 +1336,13 @@ munit_suite_main_custom(const MunitSuite* suite, void* user_data,
         arg++;
       } else if (strcmp("param", argv[arg] + 2) == 0) {
         if (arg + 2 >= argc) {
-          fputs("Error: --param requires two arguments.\n", stderr);
+	  munit_logf_internal(MUNIT_LOG_ERROR, stderr, "%s requires two arguments", argv[arg]);
           goto cleanup;
         }
 
         runner.parameters = realloc(runner.parameters, sizeof(MunitParameter) * (parameters_size + 2));
         if (runner.parameters == NULL) {
-          fputs("Error: failed to allocate memory.\n", stderr);
+	  munit_log_internal(MUNIT_LOG_ERROR, stderr, "failed to allocate memory");
           goto cleanup;
         }
         runner.parameters[parameters_size].name = (char*) argv[arg + 1];
@@ -1327,7 +1353,7 @@ munit_suite_main_custom(const MunitSuite* suite, void* user_data,
         arg += 2;
       } else if (strcmp("color", argv[arg] + 2) == 0) {
         if (arg + 1 >= argc) {
-          fputs("Error: --color requires an argument.\n", stderr);
+	  munit_logf_internal(MUNIT_LOG_ERROR, stderr, "%s requires an argument", argv[arg]);
           goto cleanup;
         }
 
@@ -1338,7 +1364,7 @@ munit_suite_main_custom(const MunitSuite* suite, void* user_data,
         else if (strcmp(argv[arg + 1], "auto") == 0)
           runner.colorize = isatty(fileno(MUNIT_OUTPUT_FILE));
         else {
-          fprintf(stderr, "Error: invalid value (`%s') passed to --color.\n", argv[arg + 1]);
+	  munit_logf_internal(MUNIT_LOG_ERROR, stderr, "invalid value ('%s') passed to %s", argv[arg + 1], argv[arg]);
           goto cleanup;
         }
 
@@ -1362,7 +1388,7 @@ munit_suite_main_custom(const MunitSuite* suite, void* user_data,
         MunitLogLevel level;
 
         if (arg + 1 >= argc) {
-          fprintf(stderr, "Error: %s requires an argument.\n", argv[arg]);
+	  munit_logf_internal(MUNIT_LOG_ERROR, stderr, "%s requires an argument", argv[arg]);
           goto cleanup;
         }
 
@@ -1375,7 +1401,7 @@ munit_suite_main_custom(const MunitSuite* suite, void* user_data,
         else if (strcmp(argv[arg + 1], "error") == 0)
           level = MUNIT_LOG_DEBUG;
         else {
-          fprintf(stderr, "Error: invalid log level `%s'.\n", argv[arg + 1]);
+	  munit_logf_internal(MUNIT_LOG_ERROR, stderr, "invalid value ('%s') passed to %s", argv[arg + 1], argv[arg]);
           goto cleanup;
         }
 
@@ -1396,7 +1422,7 @@ munit_suite_main_custom(const MunitSuite* suite, void* user_data,
       } else {
         const MunitArgument* argument = munit_arguments_find(arguments, argv[arg] + 2);
         if (argument == NULL) {
-          fprintf (stderr, "Unknown argument `%s'.\n", argv[arg]);
+	  munit_logf_internal(MUNIT_LOG_ERROR, stderr, "unknown argument ('%s')", argv[arg]);
           goto cleanup;
         }
 
@@ -1406,7 +1432,7 @@ munit_suite_main_custom(const MunitSuite* suite, void* user_data,
     } else {
       runner.tests = realloc((void*) runner.tests, sizeof(char*) * (tests_size + 2));
       if (runner.tests == NULL) {
-        fputs("Error: failed to allocate memory.\n", stderr);
+	  munit_log_internal(MUNIT_LOG_ERROR, stderr, "failed to allocate memory");
         goto cleanup;
       }
       runner.tests[tests_size++] = argv[arg];

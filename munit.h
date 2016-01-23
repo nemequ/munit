@@ -72,10 +72,10 @@ typedef enum {
 #if defined(__GNUC__) && !defined(__MINGW32__)
 __attribute__((format (printf, 4, 5)))
 #endif
-void munit_log_ex(MunitLogLevel level, const char* filename, int line, const char* format, ...);
+void munit_logf_ex(MunitLogLevel level, const char* filename, int line, const char* format, ...);
 
 #define munit_logf(level, format, ...) \
-  munit_log_ex(level, __FILE__, __LINE__, format, __VA_ARGS__)
+  munit_logf_ex(level, __FILE__, __LINE__, format, __VA_ARGS__)
 
 #define munit_log(level, msg) \
   munit_logf(level, "%s", msg)
