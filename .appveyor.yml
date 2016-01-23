@@ -22,6 +22,6 @@ install:
 before_build:
   - call "C:\Program Files (x86)\Microsoft Visual Studio %MSVC_VER%.0\VC\vcvarsall.bat" %ARCHITECTURE%
 
-build_script: cl.exe /Feexample munit.c example.c
+build_script: cl.exe /W4 /WX /Feexample munit.c example.c
 
 test_script: example.exe --color always

@@ -60,6 +60,12 @@
 #  define _POSIX_C_SOURCE 200809L
 #endif
 
+/* Because, according to Microsoft, POSIX is deprecated.  You've got
+ * to appreciate the chutzpah. */
+#if defined(_MSC_VER) && !defined(_CRT_NONSTDC_NO_DEPRECATE)
+#  define _CRT_NONSTDC_NO_DEPRECATE
+#endif
+
 #include <stdint.h>
 #include <stdbool.h>
 #include <limits.h>
@@ -95,6 +101,13 @@
 #  define MUNIT_THREAD_LOCAL __thread
 #elif defined(_WIN32)
 #  define MUNIT_THREAD_LOCAL __declspec(thread)
+#endif
+
+/* MSVC 12.0 will emit a warning at /W4 for code like 'do { ... }
+ * while (0)', or 'do { ... } while (true)'.  I'm pretty sure nobody
+ * at Microsoft compiles with /W4. */
+#if defined(_MSC_VER) && (_MSC_VER <= 1800)
+#pragma warning(disable: 4127)
 #endif
 
 /*** Logging ***/
@@ -182,6 +195,27 @@ munit_logf_ex(MunitLogLevel level, const char* filename, int line, const char* f
 #if defined(__MINGW32__) || defined(__MINGW64__)
 #pragma GCC diagnostic pop
 #endif
+
+#if !defined(MUNIT_STRERROR_LEN)
+#  define MUNIT_STRERROR_LEN 80
+#endif
+
+static void
+munit_log_errno (MunitLogLevel level, FILE* fp, const char* msg) {
+#if defined(MUNIT_NO_STRERROR_R) || (defined(__MINGW32__) && !defined(MINGW_HAS_SECURE_API))
+  munit_logf_internal(level, fp, "%s: %s (%d)", msg, strerror(errno), errno);
+#else
+  char munit_error_str[MUNIT_STRERROR_LEN];
+
+#if !defined(_WIN32)
+  strerror_r(errno, munit_error_str, MUNIT_STRERROR_LEN);
+#else
+  strerror_s(munit_error_str, MUNIT_STRERROR_LEN, errno);
+#endif
+
+  munit_logf_internal(level, fp, "%s: %s (%d)", msg, munit_error_str, errno);
+#endif
+}
 
 /*** Memory allocation ***/
 
@@ -849,13 +883,23 @@ munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest*
 
   fflush(MUNIT_OUTPUT_FILE);
 
-  FILE* stderr_buf = tmpfile();
+  FILE* stderr_buf;
+#if !defined(_WIN32) || defined(__MINGW32__)
+  stderr_buf = tmpfile();
+#else
+  tmpfile_s(&stderr_buf);
+#endif
+  if (stderr_buf == NULL) {
+    munit_log_errno(MUNIT_LOG_ERROR, stderr, "unable to create buffer for stderr");
+    result = MUNIT_ERROR;
+    goto print_result;
+  }
 
 #if !defined(_WIN32)
   if (runner->fork) {
     int pipefd[2] = { -1, -1 };
     if (pipe(pipefd) != 0) {
-      munit_logf_internal(MUNIT_LOG_ERROR, stderr, "unable to create pipe: %s (%d)", strerror(errno), errno);
+      munit_log_errno(MUNIT_LOG_ERROR, stderr, "unable to create pipe");
       result = MUNIT_ERROR;
       goto print_result;
     }
@@ -872,8 +916,9 @@ munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest*
       do {
         bytes_written += write(pipefd[1], ((uint8_t*) (&report)) + bytes_written, sizeof(report) - bytes_written);
         if (bytes_written < 0) {
-          if (stderr_buf != NULL)
-	    munit_logf_internal(MUNIT_LOG_ERROR, stderr_buf, "unable to write to pipe: %s (%d)", strerror(errno), errno);
+          if (stderr_buf != NULL) {
+	    munit_log_errno(MUNIT_LOG_ERROR, stderr, "unable to write to pipe");
+	  }
           exit(EXIT_FAILURE);
         }
       } while ((size_t) bytes_written < sizeof(report));
@@ -886,8 +931,9 @@ munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest*
     } else if (fork_pid == -1) {
       close(pipefd[0]);
       close(pipefd[1]);
-      if (stderr_buf != NULL)
-	munit_logf_internal(MUNIT_LOG_ERROR, stderr_buf, "unable to write to fork: %s (%d)", strerror(errno), errno);
+      if (stderr_buf != NULL) {
+	munit_log_errno(MUNIT_LOG_ERROR, stderr, "unable to fork");
+      }
       report.failed++;
       result = MUNIT_ERROR;
     } else {
@@ -898,10 +944,10 @@ munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest*
         if (bytes_read < 1) {
           if (stderr_buf != NULL) {
             int status = 0;
-            const pid_t changed_pid = waitpid (fork_pid, &status, WNOHANG);
+            const pid_t changed_pid = waitpid(fork_pid, &status, WNOHANG);
 
             if ((changed_pid != fork_pid) || WIFCONTINUED(status)) {
-	      munit_logf_internal(MUNIT_LOG_ERROR, stderr_buf, "unable to read from pipe: %s (%d)", strerror(errno), errno);
+	      munit_log_errno(MUNIT_LOG_ERROR, stderr, "unable to read from pipe");
             } else if (WIFEXITED(status)) {
 	      munit_logf_internal(MUNIT_LOG_ERROR, stderr_buf, "child exited unexpectedly with status %d", WEXITSTATUS(status));
             } else if (WIFSIGNALED(status)) {
@@ -1103,7 +1149,7 @@ munit_test_runner_run_test(MunitTestRunner* runner,
     }
 
     if (wild_params_l != 0) {
-      const unsigned int first_wild = params_l;
+      const size_t first_wild = params_l;
       for (const MunitParameter* wp = wild_params ; wp != NULL && wp->name != NULL ; wp++) {
         for (const MunitParameterEnum* pe = test->parameters ; pe != NULL && pe->name != NULL ; pe++) {
           if (strcmp(wp->name, pe->name) == 0) {
@@ -1172,6 +1218,8 @@ munit_test_runner_run(MunitTestRunner* runner) {
 
 static void
 munit_print_help(int argc, const char* argv[MUNIT_ARRAY_PARAM(argc + 1)], void* user_data, const MunitArgument arguments[]) {
+  (void) argc;
+
   printf("USAGE: %s [OPTIONS...] [TEST...]\n\n", argv[0]);
   puts(" --seed SEED\n"
        "           Value used to seed the PRNG.  Must be a 32-bit integer in decimal\n"
@@ -1269,13 +1317,13 @@ munit_suite_main_custom(const MunitSuite* suite, void* user_data,
   int result = EXIT_FAILURE;
   MunitTestRunner runner = {
     .prefix = NULL,
-    .suite = suite,
+    .suite = NULL,
     .tests = NULL,
     .seed = 0,
     .iterations = 0,
     .parameters = NULL,
     .single_parameter_mode = false,
-    .user_data = user_data,
+    .user_data = NULL,
     .report = {
       .successful = 0,
       .skipped = 0,
@@ -1297,6 +1345,9 @@ munit_suite_main_custom(const MunitSuite* suite, void* user_data,
   };
   size_t parameters_size = 0;
   size_t tests_size = 0;
+
+  runner.suite = suite;
+  runner.user_data = user_data;
 
   runner.seed = munit_rand_generate_seed();
   runner.colorize = isatty(fileno(MUNIT_OUTPUT_FILE));

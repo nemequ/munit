@@ -10,10 +10,23 @@
 
 #include "munit.h"
 
+/* This is just to disable an MSVC warning about conditional
+ * expressions being constant, which you shouldn't have to do for your
+ * code.  It's only here because we want to be able to do silly things
+ * like assert that 0 != 1 for our demo. */
+#if defined(_MSC_VER)
+#pragma warning(disable: 4127)
+#endif
+
 /* Tests are functions that return void, and take a single void*
  * parameter.  We'll get to what that parameter is later. */
 static MunitResult
-test_compare (MUNIT_UNUSED const MunitParameter params[], void* data) {
+test_compare (const MunitParameter params[], void* data) {
+  /* These are just to silence compiler warnings about the parameters
+   * being unused. */
+  (void) params;
+  (void) data;
+
   /* Let'ss start with the basics. */
   munit_assert(0 != 1);
 
@@ -100,7 +113,10 @@ test_compare (MUNIT_UNUSED const MunitParameter params[], void* data) {
 }
 
 static MunitResult
-test_rand(MUNIT_UNUSED const MunitParameter params[], MUNIT_UNUSED void* user_data) {
+test_rand(const MunitParameter params[], void* user_data) {
+  (void) params;
+  (void) user_data;
+
   /* One thing missing from a lot of unit testing frameworks is a
    * random number generator.  You can't just use srand/rand because
    * the implementation varies across different platforms, and it's
@@ -152,7 +168,9 @@ test_rand(MUNIT_UNUSED const MunitParameter params[], MUNIT_UNUSED void* user_da
  * CLI to have the harness simply choose one variation at random
  * instead of running them all. */
 static MunitResult
-test_parameters(MUNIT_UNUSED const MunitParameter params[], MUNIT_UNUSED void* user_data) {
+test_parameters(const MunitParameter params[], void* user_data) {
+  (void) user_data;
+
   /* The "foo" parameter is specified as one of the following values:
    * "one", "two", or "three". */
   const char* foo = munit_parameters_get(params, "foo");
@@ -200,7 +218,9 @@ test_parameters(MUNIT_UNUSED const MunitParameter params[], MUNIT_UNUSED void* u
  * before the test, and the return value will be passed as the sole
  * parameter to the test function. */
 static void*
-test_compare_setup(MUNIT_UNUSED const MunitParameter params[], void* user_data) {
+test_compare_setup(const MunitParameter params[], void* user_data) {
+  (void) params;
+
   munit_assert_string_equal(user_data, "µnit");
   return (void*)(uintptr_t)0xdeadbeef;
 }
