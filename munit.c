@@ -414,7 +414,7 @@ munit_rand_int_range(int min, int max) {
   if (min > max)
     return munit_rand_int_range(max, min);
 
-  int64_t range = (((int64_t) max) - ((int64_t) min));
+  uint64_t range = (((int64_t) max) - ((int64_t) min));
   if (range > INT32_MAX)
     range = INT32_MAX;
 
