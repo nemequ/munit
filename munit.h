@@ -129,7 +129,7 @@ void munit_logf_ex(MunitLogLevel level, const char* filename, int line, const ch
 #define munit_assert_cmp_llong(a, op, b) \
   munit_assert_cmp_type(long long int, "lld", a, op, b)
 #define munit_assert_cmp_ullong(a, op, b) \
-  munit_assert_cmp_type(unsigned long long int, "u", a, op, b)
+  munit_assert_cmp_type(unsigned long long int, "llu", a, op, b)
 
 #define munit_assert_cmp_size(a, op, b) \
   munit_assert_cmp_type(size_t, MUNIT_SIZE_MODIFIER "u", a, op, b)
