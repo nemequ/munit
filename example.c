@@ -21,7 +21,7 @@
 /* Tests are functions that return void, and take a single void*
  * parameter.  We'll get to what that parameter is later. */
 static MunitResult
-test_compare (const MunitParameter params[], void* data) {
+test_compare(const MunitParameter params[], void* data) {
   /* These are just to silence compiler warnings about the parameters
    * being unused. */
   (void) params;
@@ -222,7 +222,7 @@ test_compare_setup(const MunitParameter params[], void* user_data) {
   (void) params;
 
   munit_assert_string_equal(user_data, "µnit");
-  return (void*)(uintptr_t)0xdeadbeef;
+  return (void*) (uintptr_t) 0xdeadbeef;
 }
 
 /* To clean up after a test, you can use a tear down function.  The

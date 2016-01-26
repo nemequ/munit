@@ -201,7 +201,7 @@ munit_logf_ex(MunitLogLevel level, const char* filename, int line, const char* f
 #endif
 
 static void
-munit_log_errno (MunitLogLevel level, FILE* fp, const char* msg) {
+munit_log_errno(MunitLogLevel level, FILE* fp, const char* msg) {
 #if defined(MUNIT_NO_STRERROR_R) || (defined(__MINGW32__) && !defined(MINGW_HAS_SECURE_API))
   munit_logf_internal(level, fp, "%s: %s (%d)", msg, strerror(errno), errno);
 #else
@@ -226,7 +226,7 @@ munit_malloc_ex(const char* filename, int line, size_t size) {
 
   void* ptr = calloc(1, size);
   if (MUNIT_UNLIKELY(ptr == NULL)) {
-    munit_logf_ex (MUNIT_LOG_ERROR, filename, line, "Failed to allocate %" MUNIT_SIZE_MODIFIER "u bytes.", size);
+    munit_logf_ex(MUNIT_LOG_ERROR, filename, line, "Failed to allocate %" MUNIT_SIZE_MODIFIER "u bytes.", size);
   }
 
   return ptr;
@@ -537,7 +537,7 @@ munit_cpu_clock_get_time(MunitCpuClock* cpuclock) {
   }
 #elif MUNIT_CPU_TIME_METHOD == MUNIT_CPU_TIME_METHOD_GETPROCESSTIMES
   FILETIME CreationTime, ExitTime, KernelTime;
-  if (!GetProcessTimes (GetCurrentProcess(), &CreationTime, &ExitTime, &KernelTime, cpuclock)) {
+  if (!GetProcessTimes(GetCurrentProcess(), &CreationTime, &ExitTime, &KernelTime, cpuclock)) {
     fputs("Unable to get CPU clock time\n", stderr);
   }
 #elif MUNIT_CPU_TIME_METHOD == MUNIT_CPU_TIME_METHOD_CLOCK
@@ -585,11 +585,11 @@ munit_cpu_clock_get_elapsed(MunitCpuClock* start, MunitCpuClock* end) {
   ULONGLONG start_cpu, end_cpu;
 
   start_cpu   = start->dwHighDateTime;
-  start_cpu <<= sizeof (DWORD) * 8;
+  start_cpu <<= sizeof(DWORD) * 8;
   start_cpu  |= start->dwLowDateTime;
 
   end_cpu   = end->dwHighDateTime;
-  end_cpu <<= sizeof (DWORD) * 8;
+  end_cpu <<= sizeof(DWORD) * 8;
   end_cpu  |= end->dwLowDateTime;
 
   return ((double) (end_cpu - start_cpu)) / 10000000;
@@ -716,7 +716,7 @@ static void
 munit_splice(int from, int to) {
   uint8_t buf[1024];
 #if !defined(_WIN32)
-  ssize_t len ;
+  ssize_t len;
   ssize_t bytes_written;
 #else
   int len;
@@ -822,13 +822,13 @@ munit_test_runner_print_color(const MunitTestRunner* runner, const char* string,
 }
 
 static int
-munit_replace_stderr (FILE* stderr_buf) {
+munit_replace_stderr(FILE* stderr_buf) {
   if (stderr_buf != NULL) {
     const int orig_stderr = dup(STDERR_FILENO);
 
     int errfd = fileno(stderr_buf);
     if (MUNIT_UNLIKELY(errfd == -1)) {
-      exit (EXIT_FAILURE);
+      exit(EXIT_FAILURE);
       }
 
     dup2(errfd, STDERR_FILENO);
@@ -1263,7 +1263,7 @@ munit_arguments_find(const MunitArgument arguments[], const char* name) {
 }
 
 static void
-munit_suite_list_tests (const MunitSuite* suite, bool show_params, const char* prefix) {
+munit_suite_list_tests(const MunitSuite* suite, bool show_params, const char* prefix) {
   size_t pre_l;
   char* pre = munit_maybe_concat(&pre_l, (char*) prefix, (char*) suite->prefix);
 

@@ -93,9 +93,9 @@ void munit_logf_ex(MunitLogLevel level, const char* filename, int line, const ch
     } \
   } while (0)
 #define munit_assert_true(expr) \
-  munit_assert (!!(expr))
+  munit_assert(!!(expr))
 #define munit_assert_false(expr) \
-  munit_assert (!(expr))
+  munit_assert(!(expr))
 
 #define munit_assert_cmp_type_full(prefix, suffix, T, fmt, a, op, b)   \
   do { \
@@ -177,7 +177,7 @@ void munit_logf_ex(MunitLogLevel level, const char* filename, int line, const ch
   do { \
     const char* munit_tmp_a_ = a; \
     const char* munit_tmp_b_ = b; \
-    if (MUNIT_UNLIKELY(strcmp (munit_tmp_a_, munit_tmp_b_) != 0)) { \
+    if (MUNIT_UNLIKELY(strcmp(munit_tmp_a_, munit_tmp_b_) != 0)) { \
       munit_errorf("assertion failed: string " #a " == " #b " (\"%s\" == \"%s\")", \
                    munit_tmp_a_, munit_tmp_b_); \
     } \
@@ -187,7 +187,7 @@ void munit_logf_ex(MunitLogLevel level, const char* filename, int line, const ch
   do { \
     const char* munit_tmp_a_ = a; \
     const char* munit_tmp_b_ = b; \
-    if (MUNIT_UNLIKELY(strcmp (munit_tmp_a_, munit_tmp_b_) == 0)) { \
+    if (MUNIT_UNLIKELY(strcmp(munit_tmp_a_, munit_tmp_b_) == 0)) { \
       munit_errorf("assertion failed: string " #a " != " #b " (\"%s\" == \"%s\")", \
                    munit_tmp_a_, munit_tmp_b_); \
     } \
@@ -242,7 +242,7 @@ void munit_random_seed(uint32_t seed);
 int munit_random_int(void);
 int munit_random_int_range(int min, int max);
 double munit_random_double(void);
-void munit_random_memory (size_t size, uint8_t buffer[MUNIT_ARRAY_PARAM(size)]);
+void munit_random_memory(size_t size, uint8_t buffer[MUNIT_ARRAY_PARAM(size)]);
 
 /*** Tests and Suites ***/
 
