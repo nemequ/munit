@@ -1213,7 +1213,7 @@ munit_test_runner_run(MunitTestRunner* runner) {
 }
 
 static void
-munit_print_help(int argc, const char* argv[MUNIT_ARRAY_PARAM(argc + 1)], void* user_data, const MunitArgument arguments[]) {
+munit_print_help(int argc, char* const argv[MUNIT_ARRAY_PARAM(argc + 1)], void* user_data, const MunitArgument arguments[]) {
   (void) argc;
 
   printf("USAGE: %s [OPTIONS...] [TEST...]\n\n", argv[0]);
@@ -1308,7 +1308,7 @@ munit_suite_list_tests(const MunitSuite* suite, bool show_params, const char* pr
 
 int
 munit_suite_main_custom(const MunitSuite* suite, void* user_data,
-                        int argc, const char* argv[MUNIT_ARRAY_PARAM(argc + 1)],
+                        int argc, char* const argv[MUNIT_ARRAY_PARAM(argc + 1)],
                         const MunitArgument arguments[]) {
   int result = EXIT_FAILURE;
   MunitTestRunner runner = {
@@ -1517,6 +1517,6 @@ munit_suite_main_custom(const MunitSuite* suite, void* user_data,
 
 int
 munit_suite_main(const MunitSuite* suite, void* user_data,
-                 int argc, const char* argv[MUNIT_ARRAY_PARAM(argc + 1)]) {
+                 int argc, char* const argv[MUNIT_ARRAY_PARAM(argc + 1)]) {
   return munit_suite_main_custom(suite, user_data, argc, argv, NULL);
 }
