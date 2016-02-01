@@ -1312,9 +1312,13 @@ munit_stream_supports_ansi(FILE *stream) {
   return isatty(fileno(stream));
 #else
   if (isatty(fileno(stream))) {
+#if !defined(__MINGW32__)
     size_t ansicon_size;
     getenv_s(&ansicon_size, NULL, 0, "ANSICON");
     return ansicon_size != 0;
+#else
+    return getenv("ANSICON") != NULL;
+#endif
   }
   return false;
 #endif
