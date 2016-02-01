@@ -1306,6 +1306,20 @@ munit_suite_list_tests(const MunitSuite* suite, bool show_params, const char* pr
   munit_maybe_free_concat(pre, prefix, suite->prefix);
 }
 
+static bool
+munit_stream_supports_ansi(FILE *stream) {
+#if !defined(_WIN32)
+  return isatty(fileno(stream));
+#else
+  if (isatty(fileno(stream))) {
+    size_t ansicon_size;
+    getenv_s(&ansicon_size, NULL, 0, "ANSICON");
+    return ansicon_size != 0;
+  }
+  return false;
+#endif
+}
+
 int
 munit_suite_main_custom(const MunitSuite* suite, void* user_data,
                         int argc, char* const argv[MUNIT_ARRAY_PARAM(argc + 1)],
@@ -1346,7 +1360,7 @@ munit_suite_main_custom(const MunitSuite* suite, void* user_data,
   runner.user_data = user_data;
 
   runner.seed = munit_rand_generate_seed();
-  runner.colorize = isatty(fileno(MUNIT_OUTPUT_FILE));
+  runner.colorize = munit_stream_supports_ansi(MUNIT_OUTPUT_FILE);
 
   for (int arg = 1 ; arg < argc ; arg++) {
     if (strncmp("--", argv[arg], 2) == 0) {
@@ -1409,7 +1423,7 @@ munit_suite_main_custom(const MunitSuite* suite, void* user_data,
         else if (strcmp(argv[arg + 1], "never") == 0)
           runner.colorize = false;
         else if (strcmp(argv[arg + 1], "auto") == 0)
-          runner.colorize = isatty(fileno(MUNIT_OUTPUT_FILE));
+          runner.colorize = munit_stream_supports_ansi(MUNIT_OUTPUT_FILE);
         else {
 	  munit_logf_internal(MUNIT_LOG_ERROR, stderr, "invalid value ('%s') passed to %s", argv[arg + 1], argv[arg]);
           goto cleanup;
