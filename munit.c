@@ -1467,11 +1467,11 @@ munit_suite_main_custom(const MunitSuite* suite, void* user_data,
         if (strcmp(argv[arg + 1], "debug") == 0)
           level = MUNIT_LOG_DEBUG;
         else if (strcmp(argv[arg + 1], "info") == 0)
-          level = MUNIT_LOG_DEBUG;
+          level = MUNIT_LOG_INFO;
         else if (strcmp(argv[arg + 1], "warning") == 0)
-          level = MUNIT_LOG_DEBUG;
+          level = MUNIT_LOG_WARNING;
         else if (strcmp(argv[arg + 1], "error") == 0)
-          level = MUNIT_LOG_DEBUG;
+          level = MUNIT_LOG_ERROR;
         else {
 	  munit_logf_internal(MUNIT_LOG_ERROR, stderr, "invalid value ('%s') passed to %s", argv[arg + 1], argv[arg]);
           goto cleanup;
