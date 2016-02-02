@@ -1187,7 +1187,7 @@ munit_test_runner_run_suite(MunitTestRunner* runner,
   for (const MunitTest* test = suite->tests ; test != NULL && test->test != NULL ; test++) {
     if (runner->tests != NULL) { /* Specific tests were requested on the CLI */
       for (const char** test_name = runner->tests ; test_name != NULL && *test_name != NULL ; test_name++) {
-        if (strncmp(pre, *test_name, pre_l) == 0 &&
+        if ((pre_l == 0 || strncmp(pre, *test_name, pre_l) == 0) &&
             strncmp(test->name, *test_name + pre_l, strlen(*test_name + pre_l)) == 0) {
           munit_test_runner_run_test(runner, test, pre);
           if (runner->fatal_failures && (runner->report.failed != 0 || runner->report.errored != 0))
