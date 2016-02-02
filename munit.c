@@ -509,7 +509,10 @@ munit_wall_clock_get_time(MunitWallClock* wallclock) {
     exit(EXIT_FAILURE);
   }
 #elif MUNIT_WALL_TIME_METHOD == MUNIT_WALL_TIME_METHOD_QUERYPERFORMANCECOUNTER
-  QueryPerformanceCounter(wallclock);
+  if (QueryPerformanceCounter(wallclock) == 0) {
+    fputs("Unable to get wall clock time\n", stderr);
+    exit(EXIT_FAILURE);
+  }
 #elif MUNIT_WALL_TIME_METHOD == MUNIT_WALL_TIME_METHOD_GETTIMEOFDAY
   if (gettimeofday(wallclock, NULL) != 0) {
     fputs("Unable to get wall clock time\n", stderr);
