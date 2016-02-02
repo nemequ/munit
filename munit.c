@@ -904,9 +904,12 @@ munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest*
     if (fork_pid == 0) {
       close(pipefd[0]);
 
-      int orig_stderr = munit_replace_stderr(stderr_buf);
+      munit_replace_stderr(stderr_buf);
       result = munit_test_runner_exec(runner, test, params, &report);
-      munit_restore_stderr(orig_stderr);
+
+      /* Note that we don't restore stderr.  This is so we can buffer
+       * things written to stderr later on (such as by
+       * asan/tsan/ubsan, valgrind, etc.) */
 
       ssize_t bytes_written = 0;
       do {
@@ -930,34 +933,36 @@ munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest*
       if (stderr_buf != NULL) {
 	munit_log_errno(MUNIT_LOG_ERROR, stderr, "unable to fork");
       }
-      report.failed++;
+      report.errored++;
       result = MUNIT_ERROR;
     } else {
       close(pipefd[1]);
       ssize_t bytes_read = 0;
       do {
-        bytes_read += read(pipefd[0], ((uint8_t*) (&report)) + bytes_read, sizeof(report) - bytes_read);
-        if (bytes_read < 1) {
-          if (stderr_buf != NULL) {
-            int status = 0;
-            const pid_t changed_pid = waitpid(fork_pid, &status, WNOHANG);
-
-            if ((changed_pid != fork_pid) || WIFCONTINUED(status)) {
-	      munit_log_errno(MUNIT_LOG_ERROR, stderr, "unable to read from pipe");
-            } else if (WIFEXITED(status)) {
-	      munit_logf_internal(MUNIT_LOG_ERROR, stderr_buf, "child exited unexpectedly with status %d", WEXITSTATUS(status));
-            } else if (WIFSIGNALED(status)) {
-	      munit_logf_internal(MUNIT_LOG_ERROR, stderr_buf, "child killed by signal %d (%s)", WTERMSIG(status), strsignal(WTERMSIG(status)));
-            } else if (WIFSTOPPED(status)) {
-	      munit_logf_internal(MUNIT_LOG_ERROR, stderr_buf, "child stopped by signal %d", WSTOPSIG(status));
-            }
-          }
-          break;
-        }
+	ssize_t read_res = read(pipefd[0], ((uint8_t*) (&report)) + bytes_read, sizeof(report) - bytes_read);
+	if (read_res < 1)
+	  break;
+	bytes_read += read_res;
       } while (bytes_read < (ssize_t) sizeof(report));
 
-      if (bytes_read != sizeof(report)) {
-        report.failed++;
+      int status = 0;
+      const pid_t changed_pid = waitpid(fork_pid, &status, 0);
+
+      if (MUNIT_LIKELY(changed_pid == fork_pid) || MUNIT_LIKELY(WIFEXITED(status))) {
+	if (bytes_read != sizeof(report)) {
+	  munit_logf_internal(MUNIT_LOG_ERROR, stderr_buf, "child exited unexpectedly with status %d", WEXITSTATUS(status));
+	  report.errored++;
+	} else if (WEXITSTATUS(status) != EXIT_SUCCESS) {
+	  munit_logf_internal(MUNIT_LOG_ERROR, stderr_buf, "child exited with status %d", WEXITSTATUS(status));
+	  report.errored++;
+	}
+      } else {
+	if (WIFSIGNALED(status)) {
+	  munit_logf_internal(MUNIT_LOG_ERROR, stderr_buf, "child killed by signal %d (%s)", WTERMSIG(status), strsignal(WTERMSIG(status)));
+	} else if (WIFSTOPPED(status)) {
+	  munit_logf_internal(MUNIT_LOG_ERROR, stderr_buf, "child stopped by signal %d", WSTOPSIG(status));
+	}
+	report.errored++;
       }
 
       close(pipefd[0]);
@@ -1510,7 +1515,7 @@ munit_suite_main_custom(const MunitSuite* suite, void* user_data,
 
   munit_test_runner_run(&runner);
 
-  const unsigned int tests_run = runner.report.successful + runner.report.failed;
+  const unsigned int tests_run = runner.report.successful + runner.report.failed + runner.report.errored;
   const unsigned int tests_total = tests_run + runner.report.skipped;
   if (tests_run == 0) {
     fprintf(stderr, "No tests run, %d (100%%) skipped.\n", runner.report.skipped);
