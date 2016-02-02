@@ -923,8 +923,8 @@ munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest*
         bytes_written += write(pipefd[1], ((uint8_t*) (&report)) + bytes_written, sizeof(report) - bytes_written);
         if (bytes_written < 0) {
           if (stderr_buf != NULL) {
-	    munit_log_errno(MUNIT_LOG_ERROR, stderr, "unable to write to pipe");
-	  }
+            munit_log_errno(MUNIT_LOG_ERROR, stderr, "unable to write to pipe");
+          }
           exit(EXIT_FAILURE);
         }
       } while ((size_t) bytes_written < sizeof(report));
@@ -938,7 +938,7 @@ munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest*
       close(pipefd[0]);
       close(pipefd[1]);
       if (stderr_buf != NULL) {
-	munit_log_errno(MUNIT_LOG_ERROR, stderr, "unable to fork");
+        munit_log_errno(MUNIT_LOG_ERROR, stderr, "unable to fork");
       }
       report.errored++;
       result = MUNIT_ERROR;
@@ -946,30 +946,30 @@ munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest*
       close(pipefd[1]);
       ssize_t bytes_read = 0;
       do {
-	ssize_t read_res = read(pipefd[0], ((uint8_t*) (&report)) + bytes_read, sizeof(report) - bytes_read);
-	if (read_res < 1)
-	  break;
-	bytes_read += read_res;
+        ssize_t read_res = read(pipefd[0], ((uint8_t*) (&report)) + bytes_read, sizeof(report) - bytes_read);
+        if (read_res < 1)
+          break;
+        bytes_read += read_res;
       } while (bytes_read < (ssize_t) sizeof(report));
 
       int status = 0;
       const pid_t changed_pid = waitpid(fork_pid, &status, 0);
 
-      if (MUNIT_LIKELY(changed_pid == fork_pid) || MUNIT_LIKELY(WIFEXITED(status))) {
-	if (bytes_read != sizeof(report)) {
-	  munit_logf_internal(MUNIT_LOG_ERROR, stderr_buf, "child exited unexpectedly with status %d", WEXITSTATUS(status));
-	  report.errored++;
-	} else if (WEXITSTATUS(status) != EXIT_SUCCESS) {
-	  munit_logf_internal(MUNIT_LOG_ERROR, stderr_buf, "child exited with status %d", WEXITSTATUS(status));
-	  report.errored++;
-	}
+      if (MUNIT_LIKELY(changed_pid == fork_pid) && MUNIT_LIKELY(WIFEXITED(status))) {
+        if (bytes_read != sizeof(report)) {
+          munit_logf_internal(MUNIT_LOG_ERROR, stderr_buf, "child exited unexpectedly with status %d", WEXITSTATUS(status));
+          report.errored++;
+        } else if (WEXITSTATUS(status) != EXIT_SUCCESS) {
+          munit_logf_internal(MUNIT_LOG_ERROR, stderr_buf, "child exited with status %d", WEXITSTATUS(status));
+          report.errored++;
+        }
       } else {
-	if (WIFSIGNALED(status)) {
-	  munit_logf_internal(MUNIT_LOG_ERROR, stderr_buf, "child killed by signal %d (%s)", WTERMSIG(status), strsignal(WTERMSIG(status)));
-	} else if (WIFSTOPPED(status)) {
-	  munit_logf_internal(MUNIT_LOG_ERROR, stderr_buf, "child stopped by signal %d", WSTOPSIG(status));
-	}
-	report.errored++;
+        if (WIFSIGNALED(status)) {
+          munit_logf_internal(MUNIT_LOG_ERROR, stderr_buf, "child killed by signal %d (%s)", WTERMSIG(status), strsignal(WTERMSIG(status)));
+        } else if (WIFSTOPPED(status)) {
+          munit_logf_internal(MUNIT_LOG_ERROR, stderr_buf, "child stopped by signal %d", WSTOPSIG(status));
+        }
+        report.errored++;
       }
 
       close(pipefd[0]);
@@ -1145,7 +1145,7 @@ munit_test_runner_run_test(MunitTestRunner* runner,
          * running a single test, but we don't want every test with
          * the same number of parameters to choose the same parameter
          * number, so use the test name as a primitive salt. */
-	const int pidx = munit_rand_at_most(munit_str_hash(test_name), possible - 1);
+        const int pidx = munit_rand_at_most(munit_str_hash(test_name), possible - 1);
         if (MUNIT_UNLIKELY(munit_parameters_add(&params_l, &params, pe->name, pe->values[pidx]) != MUNIT_OK))
           goto cleanup;
       } else {
@@ -1382,14 +1382,14 @@ munit_suite_main_custom(const MunitSuite* suite, void* user_data,
     if (strncmp("--", argv[arg], 2) == 0) {
       if (strcmp("seed", argv[arg] + 2) == 0) {
         if (arg + 1 >= argc) {
-	  munit_logf_internal(MUNIT_LOG_ERROR, stderr, "%s requires an argument", argv[arg]);
+          munit_logf_internal(MUNIT_LOG_ERROR, stderr, "%s requires an argument", argv[arg]);
           goto cleanup;
         }
 
         char* envptr = argv[arg + 1];
         unsigned long long ts = strtoull(argv[arg + 1], &envptr, 0);
         if (*envptr != '\0' || ts > UINT32_MAX) {
-	  munit_logf_internal(MUNIT_LOG_ERROR, stderr, "invalid value ('%s') passed to %s", argv[arg + 1], argv[arg]);
+          munit_logf_internal(MUNIT_LOG_ERROR, stderr, "invalid value ('%s') passed to %s", argv[arg + 1], argv[arg]);
           goto cleanup;
         }
         runner.seed = (uint32_t) ts;
@@ -1397,14 +1397,14 @@ munit_suite_main_custom(const MunitSuite* suite, void* user_data,
         arg++;
       } else if (strcmp("iterations", argv[arg] + 2) == 0) {
         if (arg + 1 >= argc) {
-	  munit_logf_internal(MUNIT_LOG_ERROR, stderr, "%s requires an argument", argv[arg]);
+          munit_logf_internal(MUNIT_LOG_ERROR, stderr, "%s requires an argument", argv[arg]);
           goto cleanup;
         }
 
         char* endptr = argv[arg + 1];
         unsigned long long iterations = strtoull(argv[arg + 1], &endptr, 0);
         if (*endptr != '\0' || iterations > UINT_MAX) {
-	  munit_logf_internal(MUNIT_LOG_ERROR, stderr, "invalid value ('%s') passed to %s", argv[arg + 1], argv[arg]);
+          munit_logf_internal(MUNIT_LOG_ERROR, stderr, "invalid value ('%s') passed to %s", argv[arg + 1], argv[arg]);
           goto cleanup;
         }
 
@@ -1413,13 +1413,13 @@ munit_suite_main_custom(const MunitSuite* suite, void* user_data,
         arg++;
       } else if (strcmp("param", argv[arg] + 2) == 0) {
         if (arg + 2 >= argc) {
-	  munit_logf_internal(MUNIT_LOG_ERROR, stderr, "%s requires two arguments", argv[arg]);
+          munit_logf_internal(MUNIT_LOG_ERROR, stderr, "%s requires two arguments", argv[arg]);
           goto cleanup;
         }
 
         runner.parameters = realloc(runner.parameters, sizeof(MunitParameter) * (parameters_size + 2));
         if (runner.parameters == NULL) {
-	  munit_log_internal(MUNIT_LOG_ERROR, stderr, "failed to allocate memory");
+          munit_log_internal(MUNIT_LOG_ERROR, stderr, "failed to allocate memory");
           goto cleanup;
         }
         runner.parameters[parameters_size].name = (char*) argv[arg + 1];
@@ -1430,7 +1430,7 @@ munit_suite_main_custom(const MunitSuite* suite, void* user_data,
         arg += 2;
       } else if (strcmp("color", argv[arg] + 2) == 0) {
         if (arg + 1 >= argc) {
-	  munit_logf_internal(MUNIT_LOG_ERROR, stderr, "%s requires an argument", argv[arg]);
+          munit_logf_internal(MUNIT_LOG_ERROR, stderr, "%s requires an argument", argv[arg]);
           goto cleanup;
         }
 
@@ -1441,7 +1441,7 @@ munit_suite_main_custom(const MunitSuite* suite, void* user_data,
         else if (strcmp(argv[arg + 1], "auto") == 0)
           runner.colorize = munit_stream_supports_ansi(MUNIT_OUTPUT_FILE);
         else {
-	  munit_logf_internal(MUNIT_LOG_ERROR, stderr, "invalid value ('%s') passed to %s", argv[arg + 1], argv[arg]);
+          munit_logf_internal(MUNIT_LOG_ERROR, stderr, "invalid value ('%s') passed to %s", argv[arg + 1], argv[arg]);
           goto cleanup;
         }
 
@@ -1465,7 +1465,7 @@ munit_suite_main_custom(const MunitSuite* suite, void* user_data,
         MunitLogLevel level;
 
         if (arg + 1 >= argc) {
-	  munit_logf_internal(MUNIT_LOG_ERROR, stderr, "%s requires an argument", argv[arg]);
+          munit_logf_internal(MUNIT_LOG_ERROR, stderr, "%s requires an argument", argv[arg]);
           goto cleanup;
         }
 
@@ -1478,7 +1478,7 @@ munit_suite_main_custom(const MunitSuite* suite, void* user_data,
         else if (strcmp(argv[arg + 1], "error") == 0)
           level = MUNIT_LOG_ERROR;
         else {
-	  munit_logf_internal(MUNIT_LOG_ERROR, stderr, "invalid value ('%s') passed to %s", argv[arg + 1], argv[arg]);
+          munit_logf_internal(MUNIT_LOG_ERROR, stderr, "invalid value ('%s') passed to %s", argv[arg + 1], argv[arg]);
           goto cleanup;
         }
 
@@ -1499,7 +1499,7 @@ munit_suite_main_custom(const MunitSuite* suite, void* user_data,
       } else {
         const MunitArgument* argument = munit_arguments_find(arguments, argv[arg] + 2);
         if (argument == NULL) {
-	  munit_logf_internal(MUNIT_LOG_ERROR, stderr, "unknown argument ('%s')", argv[arg]);
+          munit_logf_internal(MUNIT_LOG_ERROR, stderr, "unknown argument ('%s')", argv[arg]);
           goto cleanup;
         }
 
@@ -1509,7 +1509,7 @@ munit_suite_main_custom(const MunitSuite* suite, void* user_data,
     } else {
       runner.tests = realloc((void*) runner.tests, sizeof(char*) * (tests_size + 2));
       if (runner.tests == NULL) {
-	  munit_log_internal(MUNIT_LOG_ERROR, stderr, "failed to allocate memory");
+        munit_log_internal(MUNIT_LOG_ERROR, stderr, "failed to allocate memory");
         goto cleanup;
       }
       runner.tests[tests_size++] = argv[arg];
