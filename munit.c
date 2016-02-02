@@ -544,6 +544,7 @@ munit_cpu_clock_get_time(MunitCpuClock* cpuclock) {
   FILETIME CreationTime, ExitTime, KernelTime;
   if (!GetProcessTimes(GetCurrentProcess(), &CreationTime, &ExitTime, &KernelTime, cpuclock)) {
     fputs("Unable to get CPU clock time\n", stderr);
+    exit(EXIT_FAILURE);
   }
 #elif MUNIT_CPU_TIME_METHOD == MUNIT_CPU_TIME_METHOD_CLOCK
   *cpuclock = clock();
