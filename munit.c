@@ -208,6 +208,7 @@ munit_log_errno(MunitLogLevel level, FILE* fp, const char* msg) {
   munit_logf_internal(level, fp, "%s: %s (%d)", msg, strerror(errno), errno);
 #else
   char munit_error_str[MUNIT_STRERROR_LEN];
+  munit_error_str[0] = '\0';
 
 #if !defined(_WIN32)
   strerror_r(errno, munit_error_str, MUNIT_STRERROR_LEN);
@@ -885,7 +886,7 @@ munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest*
 
   fflush(MUNIT_OUTPUT_FILE);
 
-  FILE* stderr_buf;
+  FILE* stderr_buf = NULL;
 #if !defined(_WIN32) || defined(__MINGW32__)
   stderr_buf = tmpfile();
 #else
@@ -1324,7 +1325,7 @@ munit_stream_supports_ansi(FILE *stream) {
 #else
   if (isatty(fileno(stream))) {
 #if !defined(__MINGW32__)
-    size_t ansicon_size;
+    size_t ansicon_size = 0;
     getenv_s(&ansicon_size, NULL, 0, "ANSICON");
     return ansicon_size != 0;
 #else
@@ -1385,7 +1386,7 @@ munit_suite_main_custom(const MunitSuite* suite, void* user_data,
           goto cleanup;
         }
 
-        char* envptr = NULL;
+        char* envptr = argv[arg + 1];
         unsigned long long ts = strtoull(argv[arg + 1], &envptr, 0);
         if (*envptr != '\0' || ts > UINT32_MAX) {
 	  munit_logf_internal(MUNIT_LOG_ERROR, stderr, "invalid value ('%s') passed to %s", argv[arg + 1], argv[arg]);
@@ -1400,7 +1401,7 @@ munit_suite_main_custom(const MunitSuite* suite, void* user_data,
           goto cleanup;
         }
 
-        char* endptr;
+        char* endptr = argv[arg + 1];
         unsigned long long iterations = strtoull(argv[arg + 1], &endptr, 0);
         if (*endptr != '\0' || iterations > UINT_MAX) {
 	  munit_logf_internal(MUNIT_LOG_ERROR, stderr, "invalid value ('%s') passed to %s", argv[arg + 1], argv[arg]);
