@@ -131,6 +131,7 @@ static MUNIT_THREAD_LOCAL jmp_buf munit_error_jmp_buf;
 #  pragma GCC diagnostic ignored "-Wsuggest-attribute=format"
 #endif
 
+MUNIT_PRINTF(5,0)
 static void
 munit_logf_exv(MunitLogLevel level, FILE* fp, const char* filename, int line, const char* format, va_list ap) {
   if (level < munit_log_level_visible)
@@ -161,6 +162,7 @@ munit_logf_exv(MunitLogLevel level, FILE* fp, const char* filename, int line, co
   fputc('\n', fp);
 }
 
+MUNIT_PRINTF(3,4)
 static void
 munit_logf_internal(MunitLogLevel level, FILE* fp, const char* format, ...) {
   va_list ap;

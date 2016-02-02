@@ -70,8 +70,12 @@ typedef enum {
 } MunitLogLevel;
 
 #if defined(__GNUC__) && !defined(__MINGW32__)
-__attribute__((format (printf, 4, 5)))
+#  define MUNIT_PRINTF(string_index, first_to_check) __attribute__((format (printf, string_index, first_to_check)))
+#else
+#  define MUNIT_PRINTF(string_index, first_to_check)
 #endif
+
+MUNIT_PRINTF(4, 5)
 void munit_logf_ex(MunitLogLevel level, const char* filename, int line, const char* format, ...);
 
 #define munit_logf(level, format, ...) \
