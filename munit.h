@@ -319,6 +319,49 @@ int munit_suite_main_custom(const MunitSuite* suite,
                             int argc, char* const argv[MUNIT_ARRAY_PARAM(argc + 1)],
                             const MunitArgument arguments[]);
 
+#if defined(MUNIT_ENABLE_ASSERT_ALIASES)
+
+#if defined(assert)
+#undef assert
+#endif
+
+#define assert(expr) munit_assert(expr)
+#define assert_true(expr) munit_assert_true(expr)
+#define assert_false(expr) munit_assert_false(expr)
+#define assert_cmp_char(a, op, b) munit_assert_cmp_char(a, op, b)
+#define assert_cmp_uchar(a, op, b) munit_assert_cmp_(a, op, b)
+#define assert_cmp_short(a, op, b) munit_assert_cmp_(a, op, b)
+#define assert_cmp_ushort(a, op, b) munit_assert_cmp_(a, op, b)
+#define assert_cmp_int(a, op, b) munit_assert_cmp_(a, op, b)
+#define assert_cmp_uint(a, op, b) munit_assert_cmp_(a, op, b)
+#define assert_cmp_long(a, op, b) munit_assert_cmp_(a, op, b)
+#define assert_cmp_ulong(a, op, b) munit_assert_cmp_(a, op, b)
+#define assert_cmp_llong(a, op, b) munit_assert_cmp_(a, op, b)
+#define assert_cmp_ullong(a, op, b) munit_assert_cmp_(a, op, b)
+#define assert_cmp_size(a, op, b) munit_assert_cmp_(a, op, b)
+#define assert_cmp_float(a, op, b) munit_assert_cmp_(a, op, b)
+#define assert_cmp_double(a, op, b) munit_assert_cmp_(a, op, b)
+#define assert_cmp_ptr(a, op, b) munit_assert_cmp_(a, op, b)
+
+#define assert_cmp_int(a, op, b) munit_assert_cmp_int(a, op, b)
+#define assert_cmp_uint(a, op, b) munit_assert_cmp_uint(a, op, b)
+#define assert_cmp_int(a, op, b) munit_assert_cmp_int(a, op, b)
+#define assert_cmp_uint(a, op, b) munit_assert_cmp_uint(a, op, b)
+#define assert_cmp_int(a, op, b) munit_assert_cmp_int(a, op, b)
+#define assert_cmp_uint(a, op, b) munit_assert_cmp_uint(a, op, b)
+#define assert_cmp_int(a, op, b) munit_assert_cmp_int(a, op, b)
+#define assert_cmp_uint(a, op, b) munit_assert_cmp_uint(a, op, b)
+
+#define assert_double_equal(a, b, precision) munit_assert_double_equal(a, b, precision)
+#define assert_string_equal(a, b) munit_assert_string_equal(a, b)
+#define assert_string_nequal(a, b) munit_assert_string_nequal(a, b)
+#define assert_memory_equal(size, a, b) munit_assert_memory_equal(size, a, b)
+#define assert_ptr_equal(a, b) munit_assert_ptr_equal(a, b)
+#define assert_null(ptr) munit_assert_null_equal(ptr)
+#define assert_non_null(ptr) munit_assert_non_null(ptr)
+
+#endif /* defined(MUNIT_ENABLE_SHORT_ALIASES) */
+
 #if defined(__cplusplus)
 }
 #endif
