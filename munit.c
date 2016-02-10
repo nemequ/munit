@@ -384,7 +384,7 @@ munit_rand_memory(size_t size, uint8_t data[MUNIT_ARRAY_PARAM(size)]) {
 static int32_t
 munit_rand_state_at_most(uint32_t* state, uint32_t salt, int32_t max) {
   /* https://stackoverflow.com/questions/2509679/how-to-generate-a-random-number-from-within-a-range#6852396 */
-  munit_assert_cmp_int32(max, >, 0);
+  munit_assert_int32(max, >, 0);
   const uint64_t
     num_bins = ((uint64_t) max) + 1,
     num_rand = ((uint64_t) INT32_MAX) + 1,

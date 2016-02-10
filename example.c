@@ -41,7 +41,7 @@ test_compare(const MunitParameter params[], void* data) {
   /* munit_errorf("Goodbye, cruel %s", "world"); */
 
   /* There are macros for comparing lots of types. */
-  munit_assert_cmp_char('a', ==, 'a');
+  munit_assert_char('a', ==, 'a');
 
   /* Sure, you could just assert('a' == 'a'), but if you did that, a
    * failed assertion would just say something like "assertion failed:
@@ -49,13 +49,13 @@ test_compare(const MunitParameter params[], void* data) {
    * failure here would result in something like "assertion failed:
    * val_uchar == 'b' ('X' == 'b')." */
   const unsigned char val_uchar = 'b';
-  munit_assert_cmp_uchar(val_uchar, ==, 'b');
+  munit_assert_uchar(val_uchar, ==, 'b');
 
   /* Obviously we can handle values larger than 'char' and 'uchar'.
    * There are versions for char, short, int, long, long long,
    * int8/16/32/64_t, as well as the unsigned versions of them all. */
   const short val_short = 1729;
-  munit_assert_cmp_short(42, <, val_short);
+  munit_assert_short(42, <, val_short);
 
   /* There is also support for size_t.
    *
@@ -63,11 +63,11 @@ test_compare(const MunitParameter params[], void* data) {
    * "uncopyrightables", which has uncopyrightable (and
    * dermatoglyphics, which is the study of fingerprints) beat by a
    * character */
-  munit_assert_cmp_size(strlen("uncopyrightables"), >, strlen("dermatoglyphics"));
+  munit_assert_size(strlen("uncopyrightables"), >, strlen("dermatoglyphics"));
 
   /* Of course there is also support for doubles and floats. */
   double pi = 3.141592654;
-  munit_assert_cmp_double(pi, ==, 3.141592654);
+  munit_assert_double(pi, ==, 3.141592654);
 
   /* If you want to compare two doubles for equality, you might want
    * to consider using munit_assert_double_equal.  It compares two
@@ -78,7 +78,7 @@ test_compare(const MunitParameter params[], void* data) {
   munit_assert_double_equal(3.141592654, 3.141592653589793, 9);
 
   /* And if you want to check strings for equality (or inequality),
-   * there is munit_assert_string_equal/nequal.
+   * there is munit_assert_string_equal/not_equal.
    *
    * "stewardesses" is the longest word you can type on a QWERTY
    * keyboard with only one hand, which makes it loads of fun to type.
@@ -93,13 +93,16 @@ test_compare(const MunitParameter params[], void* data) {
    * of the first differing byte. */
   munit_assert_memory_equal(7, stewardesses, "steward");
 
-  /* There are equal/nequal macros for pointers, too: */
+  /* You can also make sure that two blobs differ *somewhere*: */
+  munit_assert_memory_not_equal(8, stewardesses, "steward");
+
+  /* There are equal/not_equal macros for pointers, too: */
   const char* most_fun_word_to_type = stewardesses;
   munit_assert_ptr_equal(most_fun_word_to_type, stewardesses);
 
-  /* And null/non_null */
+  /* And null/not_null */
   munit_assert_null(NULL);
-  munit_assert_non_null(most_fun_word_to_type);
+  munit_assert_not_null(most_fun_word_to_type);
 
   /* Lets verify that the data parameter is what we expected.  We'll
    * see where this comes from in a bit.
@@ -132,13 +135,13 @@ test_rand(const MunitParameter params[], void* user_data) {
 
   /* If you need an integer in a given range */
   int random_int = munit_rand_int_range(128, 4096);
-  munit_assert_cmp_int(random_int, >=, 128);
-  munit_assert_cmp_int(random_int, <=, 4096);
+  munit_assert_int(random_int, >=, 128);
+  munit_assert_int(random_int, <=, 4096);
 
   /* Or maybe you want a double, between 0 and 1: */
   double random_dbl = munit_rand_double();
-  munit_assert_cmp_double(random_dbl, >=, 0.0);
-  munit_assert_cmp_double(random_dbl, <=, 1.0);
+  munit_assert_double(random_dbl, >=, 0.0);
+  munit_assert_double(random_dbl, <=, 1.0);
 
   /* Of course, you want to be able to reproduce bugs discovered
    * during testing, so every time the tests are run they print the
@@ -150,7 +153,7 @@ test_rand(const MunitParameter params[], void* user_data) {
    * uncomment the next line of code.  Note that the PRNG is not
    * re-seeded between iterations of the same test, so this will only
    * work on the first iteration. */
-  /* munit_assert_cmp_uint32(munit_rand_uint32(), ==, 1306447409); */
+  /* munit_assert_uint32(munit_rand_uint32(), ==, 1306447409); */
 
   /* You can also get blobs of random memory: */
   uint8_t data[5] = { 0, };
