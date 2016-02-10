@@ -206,9 +206,9 @@ test_parameters(const MunitParameter params[], void* user_data) {
       strcmp(foo, "three") != 0)
     return MUNIT_FAIL;
 
-  if (strcmp(bar, "four") != 0 &&
-      strcmp(bar, "five") != 0 &&
-      strcmp(bar, "six") != 0)
+  if (strcmp(bar, "red") != 0 &&
+      strcmp(bar, "green") != 0 &&
+      strcmp(bar, "blue") != 0)
     return MUNIT_FAIL;
 
   return MUNIT_OK;
@@ -238,7 +238,7 @@ static char* foo_params[] = {
 };
 
 static char* bar_params[] = {
-  (char*) "four", (char*) "five", (char*) "six", NULL
+  (char*) "red", (char*) "green", (char*) "blue", NULL
 };
 
 static MunitParameterEnum test_params[] = {
