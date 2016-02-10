@@ -384,7 +384,7 @@ int munit_suite_main_custom(const MunitSuite* suite,
 #define assert_ptr_null(ptr) munit_assert_null_equal(ptr)
 #define assert_ptr_not_null(ptr) munit_assert_not_null(ptr)
 
-#define assert_null(ptr) munit_assert_null_equal(ptr)
+#define assert_null(ptr) munit_assert_null(ptr)
 #define assert_not_null(ptr) munit_assert_not_null(ptr)
 
 #endif /* defined(MUNIT_ENABLE_SHORT_ALIASES) */
