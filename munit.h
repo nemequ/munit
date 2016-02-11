@@ -96,10 +96,19 @@ void munit_logf_ex(MunitLogLevel level, const char* filename, int line, const ch
       munit_error("assertion failed: " #expr); \
     } \
   } while (0)
+
 #define munit_assert_true(expr) \
-  munit_assert(!!(expr))
+  do { \
+    if (!MUNIT_LIKELY(expr)) { \
+      munit_error("assertion failed: " #expr " is not true"); \
+    } \
+  } while (0)
 #define munit_assert_false(expr) \
-  munit_assert(!(expr))
+  do { \
+    if (!MUNIT_LIKELY(!(expr))) { \
+      munit_error("assertion failed: " #expr " is not false"); \
+    } \
+  } while (0)
 
 #define munit_assert_type_full(prefix, suffix, T, fmt, a, op, b)   \
   do { \
