@@ -343,11 +343,6 @@ int munit_suite_main_custom(const MunitSuite* suite,
 
 #if defined(MUNIT_ENABLE_ASSERT_ALIASES)
 
-#if defined(assert)
-#undef assert
-#endif
-
-#define assert(expr) munit_assert(expr)
 #define assert_true(expr) munit_assert_true(expr)
 #define assert_false(expr) munit_assert_false(expr)
 #define assert_char(a, op, b) munit_assert_char(a, op, b)
@@ -394,3 +389,10 @@ int munit_suite_main_custom(const MunitSuite* suite,
 #endif
 
 #endif /* !defined(MUNIT_H) */
+
+#if defined(MUNIT_ENABLE_ASSERT_ALIASES)
+#  if defined(assert)
+#    undef assert
+#  endif
+#  define assert(expr) munit_assert(expr)
+#endif
