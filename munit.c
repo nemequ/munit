@@ -77,6 +77,13 @@
 #include <stdarg.h>
 #include <setjmp.h>
 
+#if !defined(MUNIT_NO_NL_LANGINFO) && !defined(_WIN32)
+#define MUNIT_NL_LANGINFO
+#include <locale.h>
+#include <langinfo.h>
+#include <strings.h>
+#endif
+
 #if !defined(_WIN32)
 #  include <unistd.h>
 #  include <sys/types.h>
@@ -1260,7 +1267,18 @@ munit_print_help(int argc, char* const argv[MUNIT_ARRAY_PARAM(argc + 1)], void* 
        " --color auto|always|never\n"
        "           Colorize (or don't) the output.\n"
      /* 12345678901234567890123456789012345678901234567890123456789012345678901234567890 */
-       " --help    Print this help message and exit.");
+       " --help    Print this help message and exit.\n");
+#if defined(MUNIT_NL_LANGINFO)
+  setlocale(LC_ALL, "");
+  fputs((strcasecmp("UTF-8", nl_langinfo(CODESET)) == 0) ? "µnit" : "munit", stdout);
+#else
+  puts("munit");
+#endif
+  printf(" %d.%d.%d\n"
+         "Full documentation at: https://nemequ.github.io/munit/\n",
+         (MUNIT_CURRENT_VERSION >> 16) & 0xff,
+         (MUNIT_CURRENT_VERSION >> 8) & 0xff,
+         (MUNIT_CURRENT_VERSION >> 0) & 0xff);
   for (const MunitArgument* arg = arguments ; arg != NULL && arg->name != NULL ; arg++)
     arg->write_help(arg, user_data);
 }

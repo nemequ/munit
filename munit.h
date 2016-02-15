@@ -32,6 +32,11 @@
 extern "C" {
 #endif
 
+#define MUNIT_VERSION(major, minor, revision) \
+  (((major) << 16) | ((minor) << 8) | (revision))
+
+#define MUNIT_CURRENT_VERSION MUNIT_VERSION(0, 1, 0)
+
 #if defined(__GNUC__)
 #  define MUNIT_LIKELY(expr) (__builtin_expect ((expr), 1))
 #  define MUNIT_UNLIKELY(expr) (__builtin_expect ((expr), 0))
