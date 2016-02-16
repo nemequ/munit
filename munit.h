@@ -306,8 +306,9 @@ typedef struct {
 const char* munit_parameters_get(const MunitParameter params[], const char* key);
 
 typedef enum {
-  MUNIT_TEST_OPTION_NONE = 0,
-  MUNIT_TEST_OPTION_SINGLE_ITERATION = 1 << 0
+  MUNIT_TEST_OPTION_NONE             = 0,
+  MUNIT_TEST_OPTION_SINGLE_ITERATION = 1 << 0,
+  MUNIT_TEST_OPTION_TODO             = 1 << 1
 } MunitTestOptions;
 
 typedef MunitResult (* MunitTestFunc)(const MunitParameter params[], void* user_data_or_fixture);

@@ -820,11 +820,13 @@ munit_test_runner_exec(MunitTestRunner* runner, const MunitTest* test, const Mun
 #  define MUNIT_RESULT_STRING_SKIP  ":|"
 #  define MUNIT_RESULT_STRING_FAIL  ":("
 #  define MUNIT_RESULT_STRING_ERROR ":o"
+#  define MUNIT_RESULT_STRING_TODO  ":/"
 #else
 #  define MUNIT_RESULT_STRING_OK    "OK   "
 #  define MUNIT_RESULT_STRING_SKIP  "SKIP "
 #  define MUNIT_RESULT_STRING_FAIL  "FAIL "
 #  define MUNIT_RESULT_STRING_ERROR "ERROR"
+#  define MUNIT_RESULT_STRING_TODO  "TODO "
 #endif
 
 static void
@@ -1009,7 +1011,18 @@ munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest*
  print_result:
 
   fputs("[ ", MUNIT_OUTPUT_FILE);
-  if (report.failed > 0) {
+  if ((test->options & MUNIT_TEST_OPTION_TODO) == MUNIT_TEST_OPTION_TODO) {
+    if (report.failed != 0 || report.errored != 0 || report.skipped != 0) {
+      munit_test_runner_print_color(runner, MUNIT_RESULT_STRING_TODO, '3');
+      result = MUNIT_OK;
+    } else {
+      munit_test_runner_print_color(runner, MUNIT_RESULT_STRING_ERROR, '1');
+      munit_log_internal(MUNIT_LOG_ERROR, stderr_buf, "Test marked TODO, but was successful.");
+      runner->report.failed++;
+      result = MUNIT_ERROR;
+    }
+  } else
+    if (report.failed > 0) {
     munit_test_runner_print_color(runner, MUNIT_RESULT_STRING_FAIL, '1');
     runner->report.failed++;
     result = MUNIT_FAIL;

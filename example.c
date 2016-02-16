@@ -276,9 +276,9 @@ static MunitTest test_suite_tests[] = {
      * may want to pass a corresponding callback here to reverse the
      * operation. */
     test_compare_tear_down,
-    /* Finally, there is a bitmask for options you can pass here.
-     * It's currently empty, but we have plans!  You can provide
-     * either MUNIT_TEST_OPTION_NONE or 0 here to use the defaults. */
+    /* Finally, there is a bitmask for options you can pass here.  You
+     * can provide either MUNIT_TEST_OPTION_NONE or 0 here to use the
+     * defaults. */
     MUNIT_TEST_OPTION_NONE,
     NULL
   },
