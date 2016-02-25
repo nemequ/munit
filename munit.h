@@ -35,7 +35,7 @@ extern "C" {
 #define MUNIT_VERSION(major, minor, revision) \
   (((major) << 16) | ((minor) << 8) | (revision))
 
-#define MUNIT_CURRENT_VERSION MUNIT_VERSION(0, 2, 0)
+#define MUNIT_CURRENT_VERSION MUNIT_VERSION(0, 3, 0)
 
 #if defined(__GNUC__)
 #  define MUNIT_LIKELY(expr) (__builtin_expect ((expr), 1))
