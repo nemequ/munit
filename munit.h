@@ -213,13 +213,13 @@ void munit_logf_ex(MunitLogLevel level, const char* filename, int line, const ch
 
 #define munit_assert_memory_equal(size, a, b) \
   do { \
-    const uint8_t* munit_tmp_a_ = (const void*) (a); \
-    const uint8_t* munit_tmp_b_ = (const void*) (b); \
+    const unsigned char* munit_tmp_a_ = (const unsigned char*) (a); \
+    const unsigned char* munit_tmp_b_ = (const unsigned char*) (b); \
     const size_t munit_tmp_size_ = (size); \
     if (MUNIT_UNLIKELY(memcmp(munit_tmp_a_, munit_tmp_b_, munit_tmp_size_)) != 0) { \
       size_t munit_tmp_pos_; \
       for (munit_tmp_pos_ = 0 ; munit_tmp_pos_ < munit_tmp_size_ ; munit_tmp_pos_++) { \
-        if (memcmp(munit_tmp_a_ + munit_tmp_pos_, munit_tmp_b_ + munit_tmp_pos_, 1) != 0) { \
+        if (munit_tmp_a_[munit_tmp_pos_] != munit_tmp_b_[munit_tmp_pos_]) { \
           munit_errorf("assertion failed: memory " #a " == " #b ", at offset %" MUNIT_SIZE_MODIFIER "u", munit_tmp_pos_); \
           break; \
         } \
@@ -229,8 +229,8 @@ void munit_logf_ex(MunitLogLevel level, const char* filename, int line, const ch
 
 #define munit_assert_memory_not_equal(size, a, b) \
   do { \
-    const uint8_t* munit_tmp_a_ = (const void*) (a); \
-    const uint8_t* munit_tmp_b_ = (const void*) (b); \
+    const unsigned char* munit_tmp_a_ = (const unsigned char*) (a); \
+    const unsigned char* munit_tmp_b_ = (const unsigned char*) (b); \
     const size_t munit_tmp_size_ = (size); \
     if (MUNIT_UNLIKELY(memcmp(munit_tmp_a_, munit_tmp_b_, munit_tmp_size_)) == 0) { \
       munit_errorf("assertion failed: memory" #a " != " #b " (%zu bytes)", munit_tmp_size_); \
