@@ -732,18 +732,21 @@ munit_splice(int from, int to) {
 #if !defined(_WIN32)
   ssize_t len;
   ssize_t bytes_written;
+  ssize_t write_res;
 #else
   int len;
   int bytes_written;
+  int write_res;
 #endif
   do {
     len = read(from, buf, sizeof(buf));
     if (len > 0) {
       bytes_written = 0;
       do {
-        bytes_written += write(to, buf + bytes_written, len - bytes_written);
-        if (bytes_written < 0)
+        write_res = write(to, buf + bytes_written, len - bytes_written);
+        if (write_res < 0)
           break;
+        bytes_written += write_res;
       } while (bytes_written < len);
     }
     else
@@ -929,13 +932,14 @@ munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest*
 
       ssize_t bytes_written = 0;
       do {
-        bytes_written += write(pipefd[1], ((uint8_t*) (&report)) + bytes_written, sizeof(report) - bytes_written);
-        if (bytes_written < 0) {
+        ssize_t write_res = write(pipefd[1], ((uint8_t*) (&report)) + bytes_written, sizeof(report) - bytes_written);
+        if (write_res < 0) {
           if (stderr_buf != NULL) {
             munit_log_errno(MUNIT_LOG_ERROR, stderr, "unable to write to pipe");
           }
           exit(EXIT_FAILURE);
         }
+        bytes_written += write_res;
       } while ((size_t) bytes_written < sizeof(report));
 
       if (stderr_buf != NULL)
