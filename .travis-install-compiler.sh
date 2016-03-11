@@ -1,4 +1,4 @@
-#!/bin/bash -x
+#!/bin/bash
 
 ## This script is just to get the compiler we're interested in
 ## installed on Travis.  You should not be using this.

@@ -11,6 +11,7 @@ branches:
 env:
   matrix:
     - COMPILER=gcc-5 CFLAGS="-fsanitize=address -fsanitize=undefined"
+    - COMPILER=gcc-5 CFLAGS="-std=c11"
     - COMPILER=clang
     - COMPILER=clang-3.7
     - COMPILER=gcc-4.9 CFLAGS="-fsanitize=address -fsanitize=undefined"
