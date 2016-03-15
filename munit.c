@@ -60,6 +60,20 @@
 #  define _POSIX_C_SOURCE 200809L
 #endif
 
+/* Solaris freaks out if you try to use a POSIX or SUS standard without
+ * the "right" C standard. */
+#if defined(_XOPEN_SOURCE)
+#  undef _XOPEN_SOURCE
+#endif
+
+#if defined(__STDC_VERSION__)
+#  if __STDC_VERSION__ >= 201112L
+#    define _XOPEN_SOURCE 700
+#  elif __STDC_VERSION__ >= 199901L
+#    define _XOPEN_SOURCE 600
+#  endif
+#endif
+
 /* Because, according to Microsoft, POSIX is deprecated.  You've got
  * to appreciate the chutzpah. */
 #if defined(_MSC_VER) && !defined(_CRT_NONSTDC_NO_DEPRECATE)
@@ -467,7 +481,9 @@ munit_rand_double(void) {
 #define MUNIT_WALL_TIME_METHOD_QUERYPERFORMANCECOUNTER 10
 #define MUNIT_WALL_TIME_METHOD_MACH_ABSOLUTE_TIME 11
 
-#if defined(_POSIX_TIMERS) && (_POSIX_TIMERS > 0)
+/* Solaris advertises _POSIX_TIMERS, and defines CLOCK_PROCESS_CPUTIME_ID and
+ * CLOCK_VIRTUAL, but doesn't actually implement them. */
+#if (defined(_POSIX_TIMERS) && (_POSIX_TIMERS > 0)) && !defined(__sun)
 #  define MUNIT_CPU_TIME_METHOD  MUNIT_CPU_TIME_METHOD_CLOCK_GETTIME
 #  define MUNIT_WALL_TIME_METHOD MUNIT_WALL_TIME_METHOD_CLOCK_GETTIME
 #elif defined(_WIN32)
@@ -545,7 +561,7 @@ munit_cpu_clock_get_time(MunitCpuClock* cpuclock) {
     ;
 
   if (clock_gettime(clock_id, cpuclock) != 0) {
-    fputs("Unable to get CPU clock time\n", stderr);
+    fprintf(stderr, "Unable to get CPU clock time: %s\n", strerror(errno));
     exit(EXIT_FAILURE);
   }
 #elif MUNIT_CPU_TIME_METHOD == MUNIT_CPU_TIME_METHOD_GETPROCESSTIMES
@@ -978,7 +994,11 @@ munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest*
         }
       } else {
         if (WIFSIGNALED(status)) {
+#if _XOPEN_VERSION >= 700
           munit_logf_internal(MUNIT_LOG_ERROR, stderr_buf, "child killed by signal %d (%s)", WTERMSIG(status), strsignal(WTERMSIG(status)));
+#else
+          munit_logf_internal(MUNIT_LOG_ERROR, stderr_buf, "child killed by signal %d", WTERMSIG(status));
+#endif
         } else if (WIFSTOPPED(status)) {
           munit_logf_internal(MUNIT_LOG_ERROR, stderr_buf, "child stopped by signal %d", WSTOPSIG(status));
         }
