@@ -994,7 +994,7 @@ munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest*
         }
       } else {
         if (WIFSIGNALED(status)) {
-#if _XOPEN_VERSION >= 700
+#if defined(_XOPEN_VERSION) && (_XOPEN_VERSION >= 700)
           munit_logf_internal(MUNIT_LOG_ERROR, stderr_buf, "child killed by signal %d (%s)", WTERMSIG(status), strsignal(WTERMSIG(status)));
 #else
           munit_logf_internal(MUNIT_LOG_ERROR, stderr_buf, "child killed by signal %d", WTERMSIG(status));
