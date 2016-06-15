@@ -277,6 +277,14 @@ munit_malloc_ex(const char* filename, int line, size_t size) {
 #  endif
 #endif
 
+/* Workaround for http://llvm.org/bugs/show_bug.cgi?id=26911 */
+#if defined(__clang__) && defined(_WIN32)
+#  undef HAVE_STDATOMIC
+#  if defined(__c2__)
+#    undef HAVE_CLANG_ATOMICS
+#  endif
+#endif
+
 #if defined(HAVE_STDATOMIC)
 #  include <stdatomic.h>
 #  define ATOMIC_UINT32_T _Atomic uint32_t
