@@ -13,15 +13,15 @@ env:
     - COMPILER=gcc-5 CFLAGS="-fsanitize=address -fsanitize=undefined"
     - COMPILER=gcc-5 CFLAGS="-std=c11"
     - COMPILER=clang
-    - COMPILER=clang-3.7
+    # - COMPILER=clang-3.7
     - COMPILER=gcc-4.9 CFLAGS="-fsanitize=address -fsanitize=undefined"
     - COMPILER=clang-3.6 CFLAGS="-fsanitize=address -fsanitize=undefined"
     - COMPILER=gcc-4.8 CFLAGS="-fsanitize=address"
     - COMPILER=gcc-4.7
     - COMPILER=gcc-4.6
     - COMPILER=gcc-4.4
-    - COMPILER=clang-3.5 CFLAGS="-fsanitize=address -fsanitize=undefined"
-    - COMPILER=clang-3.4 CFLAGS="-fsanitize=address -fsanitize=undefined"
+    # - COMPILER=clang-3.5 CFLAGS="-fsanitize=address -fsanitize=undefined"
+    # - COMPILER=clang-3.4 CFLAGS="-fsanitize=address -fsanitize=undefined"
     - COMPILER=x86_64-w64-mingw32-gcc EXTENSION=".exe"
     - COMPILER=i686-w64-mingw32-gcc EXTENSION=".exe"
   global:

@@ -12,10 +12,10 @@ case "${TRAVIS_OS_NAME}" in
 	sudo apt-add-repository -y ppa:ubuntu-toolchain-r/test
 
 	sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys AF4F7421
-	for CLANG_VERSION in 3.4 3.5 3.6 3.7; do
-            sudo apt-add-repository -y \
-		 "deb http://llvm.org/apt/${DISTRIB_CODENAME}/ llvm-toolchain-${DISTRIB_CODENAME}-${CLANG_VERSION} main"
-	done
+	# for CLANG_VERSION in 3.4 3.5 3.6 3.7; do
+        #     sudo apt-add-repository -y \
+	# 	 "deb http://llvm.org/apt/${DISTRIB_CODENAME}/ llvm-toolchain-${DISTRIB_CODENAME}-${CLANG_VERSION} main"
+	# done
 
 	sudo apt-get update -qq
 
