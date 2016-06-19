@@ -489,9 +489,27 @@ munit_rand_double(void) {
 #define MUNIT_WALL_TIME_METHOD_QUERYPERFORMANCECOUNTER 10
 #define MUNIT_WALL_TIME_METHOD_MACH_ABSOLUTE_TIME 11
 
-/* Solaris advertises _POSIX_TIMERS, and defines CLOCK_PROCESS_CPUTIME_ID and
- * CLOCK_VIRTUAL, but doesn't actually implement them. */
-#if (defined(_POSIX_TIMERS) && (_POSIX_TIMERS > 0)) && !defined(__sun)
+/* clock_gettime gives us a good high-resolution timer, but on some
+ * platforms you have to link in librt.  I don't want to force a
+ * complicated build system, so by default we'll only use
+ * clock_gettime on C libraries where we know the standard c library
+ * is sufficient.  If you would like to test for librt in your build
+ * system and add it if necessary, you can define
+ * MUNIT_ALLOW_CLOCK_GETTIME and we'll assume that the necessary
+ * libraries are available. */
+#if !defined(MUNIT_ALLOW_CLOCK_GETTIME)
+#  if defined(__GLIBC__) && defined(__GLIBC_MINOR__)
+#    if __GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ >= 17)
+#      define MUNIT_ALLOW_CLOCK_GETTIME
+#    endif
+#  endif
+#endif
+
+/* Solaris advertises _POSIX_TIMERS, and defines
+ * CLOCK_PROCESS_CPUTIME_ID and CLOCK_VIRTUAL, but doesn't actually
+ * implement them.  Mingw requires you to link to pthreads instead of
+ * librt (or just libc). */
+#if defined(MUNIT_ALLOW_CLOCK_GETTIME) && ((defined(_POSIX_TIMERS) && (_POSIX_TIMERS > 0)) && !defined(__sun))
 #  define MUNIT_CPU_TIME_METHOD  MUNIT_CPU_TIME_METHOD_CLOCK_GETTIME
 #  define MUNIT_WALL_TIME_METHOD MUNIT_WALL_TIME_METHOD_CLOCK_GETTIME
 #elif defined(_WIN32)
