@@ -215,6 +215,21 @@ munit_logf_ex(MunitLogLevel level, const char* filename, int line, const char* f
   }
 }
 
+void
+munit_errorf_ex(const char* filename, int line, const char* format, ...) {
+  va_list ap;
+
+  va_start(ap, format);
+  munit_logf_exv(MUNIT_LOG_ERROR, stderr, filename, line, format, ap);
+  va_end(ap);
+
+#if defined(MUNIT_THREAD_LOCAL)
+  if (munit_error_jmp_buf_valid)
+    longjmp(munit_error_jmp_buf, 1);
+#endif
+  abort();
+}
+
 #if defined(__MINGW32__) || defined(__MINGW64__)
 #pragma GCC diagnostic pop
 #endif

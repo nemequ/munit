@@ -67,6 +67,16 @@ extern "C" {
 #  define MUNIT_SHORT_MODIFIER ""
 #endif
 
+#if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L
+#  define MUNIT_NO_RETURN _Noreturn
+#elif defined(__GNUC__)
+#  define MUNIT_NO_RETURN __attribute__((__noreturn__))
+#elif defined(_MSC_VER)
+#  define MUNIT_NO_RETURN __declspec(noreturn)
+#else
+#  define MUNIT_NO_RETURN
+#endif
+
 typedef enum {
   MUNIT_LOG_DEBUG,
   MUNIT_LOG_INFO,
@@ -89,8 +99,12 @@ void munit_logf_ex(MunitLogLevel level, const char* filename, int line, const ch
 #define munit_log(level, msg) \
   munit_logf(level, "%s", msg)
 
+MUNIT_NO_RETURN
+MUNIT_PRINTF(3, 4)
+void munit_errorf_ex(const char* filename, int line, const char* format, ...);
+
 #define munit_errorf(format, ...) \
-  munit_logf(MUNIT_LOG_ERROR, format, __VA_ARGS__)
+  munit_errorf_ex(__FILE__, __LINE__, format, __VA_ARGS__)
 
 #define munit_error(msg) \
   munit_errorf("%s", msg)
