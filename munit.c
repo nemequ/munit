@@ -995,7 +995,7 @@ munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest*
       close(pipefd[0]);
 
       munit_replace_stderr(stderr_buf);
-      result = munit_test_runner_exec(runner, test, params, &report);
+      munit_test_runner_exec(runner, test, params, &report);
 
       /* Note that we don't restore stderr.  This is so we can buffer
        * things written to stderr later on (such as by
