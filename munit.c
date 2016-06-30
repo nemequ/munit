@@ -1617,11 +1617,12 @@ munit_suite_main_custom(const MunitSuite* suite, void* user_data,
           goto cleanup;
       }
     } else {
-      runner.tests = realloc((void*) runner.tests, sizeof(char*) * (tests_size + 2));
+      const char** runner_tests = realloc((void*) runner.tests, sizeof(char*) * (tests_size + 2));
       if (runner.tests == NULL) {
         munit_log_internal(MUNIT_LOG_ERROR, stderr, "failed to allocate memory");
         goto cleanup;
       }
+      runner.tests = runner_tests;
       runner.tests[tests_size++] = argv[arg];
       runner.tests[tests_size] = NULL;
     }
