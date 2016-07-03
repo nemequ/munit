@@ -1618,7 +1618,7 @@ munit_suite_main_custom(const MunitSuite* suite, void* user_data,
       }
     } else {
       const char** runner_tests = realloc((void*) runner.tests, sizeof(char*) * (tests_size + 2));
-      if (runner.tests == NULL) {
+      if (runner_tests == NULL) {
         munit_log_internal(MUNIT_LOG_ERROR, stderr, "failed to allocate memory");
         goto cleanup;
       }
