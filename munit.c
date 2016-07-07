@@ -627,28 +627,31 @@ munit_rand_memory(size_t size, uint8_t data[MUNIT_ARRAY_PARAM(size)]) {
   } while (!munit_atomic_cas(&munit_rand_state, &old, state));
 }
 
-static int32_t
-munit_rand_state_at_most(uint32_t* state, uint32_t salt, int32_t max) {
-  /* https://stackoverflow.com/questions/2509679/how-to-generate-a-random-number-from-within-a-range#6852396 */
-  munit_assert_int32(max, >, 0);
-  const uint64_t
-    num_bins = ((uint64_t) max) + 1,
-    num_rand = ((uint64_t) INT32_MAX) + 1,
-    bin_size = num_rand / num_bins,
-    defect   = num_rand % num_bins;
+static uint32_t
+munit_rand_state_at_most(uint32_t* state, uint32_t salt, uint32_t max) {
+  if (max == UINT32_MAX)
+    return munit_rand_state_uint32(state) ^ salt;
 
-  int64_t x;
+  max++;
+
+  /* We want (UINT32_MAX + 1) % max, which in unsigned arithmetic is the same
+   * as (UINT32_MAX + 1 - max) % max = -max % max. We compute -max using not
+   * to avoid compiler warnings.
+   */
+  const uint32_t min = (~max + UINT32_C(1)) % max;
+
+  uint32_t x;
   do {
-    x = (int64_t) (munit_rand_state_uint32(state) ^ salt);
-  } while (num_rand - defect <= (uint64_t) x);
+    x = munit_rand_state_uint32(state) ^ salt;
+  } while (x < min);
 
-  return (int32_t) (x / bin_size);
+  return x % max;
 }
 
-static int32_t
-munit_rand_at_most(uint32_t salt, int32_t max) {
+static uint32_t
+munit_rand_at_most(uint32_t salt, uint32_t max) {
   uint32_t old, state;
-  int32_t retval;
+  uint32_t retval;
 
   do {
     state = old = munit_atomic_load(&munit_rand_state);
@@ -663,11 +666,11 @@ munit_rand_int_range(int min, int max) {
   if (min > max)
     return munit_rand_int_range(max, min);
 
-  uint64_t range = (((int64_t) max) - ((int64_t) min));
-  if (range > INT32_MAX)
-    range = INT32_MAX;
+  uint64_t range = (uint64_t) max - (uint64_t) min;
+  if (range > UINT32_MAX)
+    range = UINT32_MAX;
 
-  return min + munit_rand_at_most(0, (int32_t) range);
+  return min + munit_rand_at_most(0, (uint32_t) range);
 }
 
 double
