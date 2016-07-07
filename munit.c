@@ -684,9 +684,7 @@ munit_rand_double(void) {
     /* See http://mumble.net/~campbell/tmp/random_real.c for how to do
      * this right.  Patches welcome if you feel that this is too
      * biased. */
-    do {
-      retval = munit_rand_state_uint32(&state) / ((double) UINT32_MAX);
-    } while (MUNIT_UNLIKELY(MUNIT_UNLIKELY(retval >= 1.0) || MUNIT_UNLIKELY(retval <= 0.0)));
+    retval = munit_rand_state_uint32(&state) / (UINT32_MAX + 1.0);
   } while (!munit_atomic_cas(&munit_rand_state, &old, state));
 
   return retval;
