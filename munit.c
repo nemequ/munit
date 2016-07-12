@@ -869,7 +869,7 @@ munit_test_runner_exec(MunitTestRunner* runner, const MunitTest* test, const Mun
       report->cpu_clock += munit_cpu_clock_get_elapsed(&cpu_clock_begin, &cpu_clock_end);
 #endif
     } else {
-      switch (result) {
+      switch ((int) result) {
         case MUNIT_SKIP:
           report->skipped++;
           break;
@@ -879,7 +879,6 @@ munit_test_runner_exec(MunitTestRunner* runner, const MunitTest* test, const Mun
         case MUNIT_ERROR:
           report->errored++;
           break;
-        case MUNIT_OK:
         default:
           break;
       }
@@ -920,7 +919,7 @@ munit_replace_stderr(FILE* stderr_buf) {
     int errfd = fileno(stderr_buf);
     if (MUNIT_UNLIKELY(errfd == -1)) {
       exit(EXIT_FAILURE);
-      }
+    }
 
     dup2(errfd, STDERR_FILENO);
 
@@ -995,12 +994,13 @@ munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest*
     if (fork_pid == 0) {
       close(pipefd[0]);
 
-      munit_replace_stderr(stderr_buf);
+      const int orig_stderr = munit_replace_stderr(stderr_buf);
       munit_test_runner_exec(runner, test, params, &report);
 
       /* Note that we don't restore stderr.  This is so we can buffer
        * things written to stderr later on (such as by
        * asan/tsan/ubsan, valgrind, etc.) */
+      close(orig_stderr);
 
       ssize_t bytes_written = 0;
       do {
@@ -1097,12 +1097,12 @@ munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest*
       result = MUNIT_OK;
     } else {
       munit_test_runner_print_color(runner, MUNIT_RESULT_STRING_ERROR, '1');
-      munit_log_internal(MUNIT_LOG_ERROR, stderr_buf, "Test marked TODO, but was successful.");
+      if (MUNIT_LIKELY(stderr_buf != NULL))
+        munit_log_internal(MUNIT_LOG_ERROR, stderr_buf, "Test marked TODO, but was successful.");
       runner->report.failed++;
       result = MUNIT_ERROR;
     }
-  } else
-    if (report.failed > 0) {
+  } else if (report.failed > 0) {
     munit_test_runner_print_color(runner, MUNIT_RESULT_STRING_FAIL, '1');
     runner->report.failed++;
     result = MUNIT_FAIL;
@@ -1259,7 +1259,7 @@ munit_test_runner_run_test(MunitTestRunner* runner,
     if (wild_params_l != 0) {
       const size_t first_wild = params_l;
       for (const MunitParameter* wp = wild_params ; wp != NULL && wp->name != NULL ; wp++) {
-        for (const MunitParameterEnum* pe = test->parameters ; pe != NULL && pe->name != NULL ; pe++) {
+        for (const MunitParameterEnum* pe = test->parameters ; pe != NULL && pe->name != NULL && pe->values != NULL ; pe++) {
           if (strcmp(wp->name, pe->name) == 0) {
             if (MUNIT_UNLIKELY(munit_parameters_add(&params_l, &params, pe->name, pe->values[0]) != MUNIT_OK))
               goto cleanup;
