@@ -35,6 +35,9 @@ case "${TRAVIS_OS_NAME}" in
 	    "tcc")
 		sudo apt-get install -qq tcc
 		;;
+            "pgcc")
+		wget -q -O /dev/stdout 'https://raw.githubusercontent.com/nemequ/pgi-travis/master/install-pgi.sh' | /bin/sh
+		;;
 	esac
 	;;
 
@@ -48,11 +51,20 @@ case "${TRAVIS_OS_NAME}" in
             "gcc-4.6")
                 which gcc-4.6 || brew install homebrew/versions/gcc46
                 ;;
+            "gcc-4.7")
+                which gcc-4.7 || brew install homebrew/versions/gcc47
+                ;;
             "gcc-4.8")
                 which gcc-4.8 || brew install homebrew/versions/gcc48
                 ;;
+            "gcc-4.9")
+                which gcc-4.9 || brew install homebrew/versions/gcc49
+                ;;
             "gcc-5")
                 which gcc-5 || brew install homebrew/versions/gcc5
+                ;;
+            "gcc-6")
+                which gcc-6 || brew install homebrew/versions/gcc6
                 ;;
         esac
         ;;

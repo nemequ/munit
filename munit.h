@@ -1,5 +1,5 @@
 /* µnit Testing Framework
- * Copyright (c) 2013-2016 Evan Nemerson <evan@nemerson.com>
+ * Copyright (c) 2013-2017 Evan Nemerson <evan@nemerson.com>
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -47,7 +47,7 @@ extern "C" {
 #  define MUNIT_UNUSED
 #endif
 
-#if defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L)
+#if defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L) && !defined(__PGI)
 #  define MUNIT_ARRAY_PARAM(name) name
 #else
 #  define MUNIT_ARRAY_PARAM(name)

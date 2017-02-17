@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2016 Evan Nemerson <evan@nemerson.com>
+/* Copyright (c) 2013-2017 Evan Nemerson <evan@nemerson.com>
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -488,7 +488,10 @@ munit_cpu_clock_get_elapsed(MunitCpuClock* start, MunitCpuClock* end) {
 #  endif
 #endif
 
-#if defined(HAVE_STDATOMIC)
+#if defined(_OPENMP)
+#  define ATOMIC_UINT32_T uint32_t
+#  define ATOMIC_UINT32_INIT(x) (x)
+#elif defined(HAVE_STDATOMIC)
 #  include <stdatomic.h>
 #  define ATOMIC_UINT32_T _Atomic uint32_t
 #  define ATOMIC_UINT32_INIT(x) ATOMIC_VAR_INIT(x)
@@ -505,7 +508,38 @@ munit_cpu_clock_get_elapsed(MunitCpuClock* start, MunitCpuClock* end) {
 
 static ATOMIC_UINT32_T munit_rand_state = ATOMIC_UINT32_INIT(42);
 
-#if defined(HAVE_STDATOMIC)
+#if defined(_OPENMP)
+static inline void
+munit_atomic_store(ATOMIC_UINT32_T* dest, ATOMIC_UINT32_T value) {
+#pragma omp critical (munit_atomics)
+  *dest = value;
+}
+
+static inline uint32_t
+munit_atomic_load(ATOMIC_UINT32_T* src) {
+  int ret;
+#pragma omp critical (munit_atomics)
+  ret = *src;
+  return ret;
+}
+
+static inline uint32_t
+munit_atomic_cas(ATOMIC_UINT32_T* dest, ATOMIC_UINT32_T* expected, ATOMIC_UINT32_T desired) {
+  _Bool ret;
+
+#pragma omp critical (munit_atomics)
+  {
+    if (*dest == *expected) {
+      *dest = desired;
+      ret = true;
+    } else {
+      ret = false;
+    }
+  }
+
+  return ret;
+}
+#elif defined(HAVE_STDATOMIC)
 #  define munit_atomic_store(dest, value)         atomic_store(dest, value)
 #  define munit_atomic_load(src)                  atomic_load(src)
 #  define munit_atomic_cas(dest, expected, value) atomic_compare_exchange_weak(dest, expected, value)
