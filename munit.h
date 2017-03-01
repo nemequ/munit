@@ -35,7 +35,7 @@ extern "C" {
 #define MUNIT_VERSION(major, minor, revision) \
   (((major) << 16) | ((minor) << 8) | (revision))
 
-#define MUNIT_CURRENT_VERSION MUNIT_VERSION(0, 3, 0)
+#define MUNIT_CURRENT_VERSION MUNIT_VERSION(0, 3, 1)
 
 #if defined(__GNUC__)
 #  define MUNIT_LIKELY(expr) (__builtin_expect ((expr), 1))
@@ -77,6 +77,14 @@ extern "C" {
 #  define MUNIT_NO_RETURN
 #endif
 
+#if defined(_MSC_VER) &&  (_MSC_VER >= 1500)
+#  define MUNIT__PUSH_DISABLE_MSVC_C4127 __pragma(warning(push)) __pragma(warning(disable:4127))
+#  define MUNIT__POP_DISABLE_MSVC_C4127 __pragma(warning(pop))
+#else
+#  define MUNIT__PUSH_DISABLE_MSVC_C4127
+#  define MUNIT__POP_DISABLE_MSVC_C4127
+#endif
+
 typedef enum {
   MUNIT_LOG_DEBUG,
   MUNIT_LOG_INFO,
@@ -114,20 +122,27 @@ void munit_errorf_ex(const char* filename, int line, const char* format, ...);
     if (!MUNIT_LIKELY(expr)) { \
       munit_error("assertion failed: " #expr); \
     } \
-  } while (0)
+    MUNIT__PUSH_DISABLE_MSVC_C4127 \
+  } while (0) \
+  MUNIT__POP_DISABLE_MSVC_C4127
 
 #define munit_assert_true(expr) \
   do { \
     if (!MUNIT_LIKELY(expr)) { \
       munit_error("assertion failed: " #expr " is not true"); \
     } \
-  } while (0)
+    MUNIT__PUSH_DISABLE_MSVC_C4127 \
+  } while (0) \
+  MUNIT__POP_DISABLE_MSVC_C4127
+
 #define munit_assert_false(expr) \
   do { \
     if (!MUNIT_LIKELY(!(expr))) { \
       munit_error("assertion failed: " #expr " is not false"); \
     } \
-  } while (0)
+    MUNIT__PUSH_DISABLE_MSVC_C4127 \
+  } while (0) \
+  MUNIT__POP_DISABLE_MSVC_C4127
 
 #define munit_assert_type_full(prefix, suffix, T, fmt, a, op, b)   \
   do { \
@@ -137,7 +152,9 @@ void munit_errorf_ex(const char* filename, int line, const char* format, ...);
       munit_errorf("assertion failed: " #a " " #op " " #b " (" prefix "%" fmt suffix " " #op " " prefix "%" fmt suffix ")", \
                    munit_tmp_a_, munit_tmp_b_); \
     } \
-  } while (0)
+    MUNIT__PUSH_DISABLE_MSVC_C4127 \
+  } while (0) \
+  MUNIT__POP_DISABLE_MSVC_C4127
 
 #define munit_assert_type(T, fmt, a, op, b) \
   munit_assert_type_full("", "", T, fmt, a, op, b)
@@ -202,7 +219,9 @@ void munit_errorf_ex(const char* filename, int line, const char* format, ...);
       munit_errorf("assertion failed: " #a " == " #b " (%0." #precision "g == %0." #precision "g)", \
 		   munit_tmp_a_, munit_tmp_b_); \
     } \
-  } while (0)
+    MUNIT__PUSH_DISABLE_MSVC_C4127 \
+  } while (0) \
+  MUNIT__POP_DISABLE_MSVC_C4127
 
 #include <string.h>
 #define munit_assert_string_equal(a, b) \
@@ -213,7 +232,9 @@ void munit_errorf_ex(const char* filename, int line, const char* format, ...);
       munit_errorf("assertion failed: string " #a " == " #b " (\"%s\" == \"%s\")", \
                    munit_tmp_a_, munit_tmp_b_); \
     } \
-  } while (0)
+    MUNIT__PUSH_DISABLE_MSVC_C4127 \
+  } while (0) \
+  MUNIT__POP_DISABLE_MSVC_C4127
 
 #define munit_assert_string_not_equal(a, b) \
   do { \
@@ -223,7 +244,9 @@ void munit_errorf_ex(const char* filename, int line, const char* format, ...);
       munit_errorf("assertion failed: string " #a " != " #b " (\"%s\" == \"%s\")", \
                    munit_tmp_a_, munit_tmp_b_); \
     } \
-  } while (0)
+    MUNIT__PUSH_DISABLE_MSVC_C4127 \
+  } while (0) \
+  MUNIT__POP_DISABLE_MSVC_C4127
 
 #define munit_assert_memory_equal(size, a, b) \
   do { \
@@ -239,7 +262,9 @@ void munit_errorf_ex(const char* filename, int line, const char* format, ...);
         } \
       } \
     } \
-  } while (0)
+    MUNIT__PUSH_DISABLE_MSVC_C4127 \
+  } while (0) \
+  MUNIT__POP_DISABLE_MSVC_C4127
 
 #define munit_assert_memory_not_equal(size, a, b) \
   do { \
@@ -249,7 +274,9 @@ void munit_errorf_ex(const char* filename, int line, const char* format, ...);
     if (MUNIT_UNLIKELY(memcmp(munit_tmp_a_, munit_tmp_b_, munit_tmp_size_)) == 0) { \
       munit_errorf("assertion failed: memory" #a " != " #b " (%zu bytes)", munit_tmp_size_); \
     } \
-  } while (0)
+    MUNIT__PUSH_DISABLE_MSVC_C4127 \
+  } while (0) \
+  MUNIT__POP_DISABLE_MSVC_C4127
 
 #define munit_assert_ptr_equal(a, b) \
   munit_assert_ptr(a, ==, b)

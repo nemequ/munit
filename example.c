@@ -27,7 +27,7 @@ test_compare(const MunitParameter params[], void* data) {
   (void) params;
   (void) data;
 
-  /* Let'ss start with the basics. */
+  /* Let's start with the basics. */
   munit_assert(0 != 1);
 
   /* There is also the more verbose, though slightly more descriptive
