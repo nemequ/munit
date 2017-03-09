@@ -22,6 +22,13 @@
  * parameter.  We'll get to what that parameter is later. */
 static MunitResult
 test_compare(const MunitParameter params[], void* data) {
+  /* We'll use these later */
+  const unsigned char val_uchar = 'b';
+  const short val_short = 1729;
+  double pi = 3.141592654;
+  char* stewardesses = "stewardesses";
+  char* most_fun_word_to_type;
+
   /* These are just to silence compiler warnings about the parameters
    * being unused. */
   (void) params;
@@ -48,13 +55,11 @@ test_compare(const MunitParameter params[], void* data) {
    * val_uchar == 'b'".  µnit will tell you the actual values, so a
    * failure here would result in something like "assertion failed:
    * val_uchar == 'b' ('X' == 'b')." */
-  const unsigned char val_uchar = 'b';
   munit_assert_uchar(val_uchar, ==, 'b');
 
   /* Obviously we can handle values larger than 'char' and 'uchar'.
    * There are versions for char, short, int, long, long long,
    * int8/16/32/64_t, as well as the unsigned versions of them all. */
-  const short val_short = 1729;
   munit_assert_short(42, <, val_short);
 
   /* There is also support for size_t.
@@ -66,7 +71,6 @@ test_compare(const MunitParameter params[], void* data) {
   munit_assert_size(strlen("uncopyrightables"), >, strlen("dermatoglyphics"));
 
   /* Of course there is also support for doubles and floats. */
-  double pi = 3.141592654;
   munit_assert_double(pi, ==, 3.141592654);
 
   /* If you want to compare two doubles for equality, you might want
@@ -84,7 +88,6 @@ test_compare(const MunitParameter params[], void* data) {
    * keyboard with only one hand, which makes it loads of fun to type.
    * If I'm going to have to type a string repeatedly, let's make it a
    * good one! */
-  const char* stewardesses = "stewardesses";
   munit_assert_string_equal(stewardesses, "stewardesses");
 
   /* A personal favorite macro which is fantastic if you're working
@@ -97,7 +100,7 @@ test_compare(const MunitParameter params[], void* data) {
   munit_assert_memory_not_equal(8, stewardesses, "steward");
 
   /* There are equal/not_equal macros for pointers, too: */
-  const char* most_fun_word_to_type = stewardesses;
+  most_fun_word_to_type = stewardesses;
   munit_assert_ptr_equal(most_fun_word_to_type, stewardesses);
 
   /* And null/not_null */
@@ -117,6 +120,10 @@ test_compare(const MunitParameter params[], void* data) {
 
 static MunitResult
 test_rand(const MunitParameter params[], void* user_data) {
+  int random_int;
+  double random_dbl;
+  munit_uint8_t data[5];
+
   (void) params;
   (void) user_data;
 
@@ -134,12 +141,12 @@ test_rand(const MunitParameter params[], void* user_data) {
    * (pseudo-)randomly generated. */
 
   /* If you need an integer in a given range */
-  int random_int = munit_rand_int_range(128, 4096);
+  random_int = munit_rand_int_range(128, 4096);
   munit_assert_int(random_int, >=, 128);
   munit_assert_int(random_int, <=, 4096);
 
   /* Or maybe you want a double, between 0 and 1: */
-  double random_dbl = munit_rand_double();
+  random_dbl = munit_rand_double();
   munit_assert_double(random_dbl, >=, 0.0);
   munit_assert_double(random_dbl, <=, 1.0);
 
@@ -156,8 +163,7 @@ test_rand(const MunitParameter params[], void* user_data) {
   /* munit_assert_uint32(munit_rand_uint32(), ==, 1306447409); */
 
   /* You can also get blobs of random memory: */
-  uint8_t data[5] = { 0, };
-  munit_rand_memory(5, data);
+  munit_rand_memory(sizeof(data), data);
 
   return MUNIT_OK;
 }
@@ -172,13 +178,16 @@ test_rand(const MunitParameter params[], void* user_data) {
  * instead of running them all. */
 static MunitResult
 test_parameters(const MunitParameter params[], void* user_data) {
+  const char* foo;
+  const char* bar;
+
   (void) user_data;
 
   /* The "foo" parameter is specified as one of the following values:
    * "one", "two", or "three". */
-  const char* foo = munit_parameters_get(params, "foo");
+  foo = munit_parameters_get(params, "foo");
   /* Similarly, "bar" is one of "four", "five", or "six". */
-  const char* bar = munit_parameters_get(params, "bar");
+  bar = munit_parameters_get(params, "bar");
   /* "baz" is a bit more complicated.  We don't actually specify a
    * list of valid values, so by default NULL is passed.  However, the
    * CLI will accept any value.  This is a good way to have a value

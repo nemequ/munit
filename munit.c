@@ -80,8 +80,12 @@
 #  define _CRT_NONSTDC_NO_DEPRECATE
 #endif
 
-#include <stdint.h>
-#include <stdbool.h>
+#if defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L)
+#  include <stdbool.h>
+#elif defined(_WIN32)
+/* https://msdn.microsoft.com/en-us/library/tf4dy80a.aspx */
+#endif
+
 #include <limits.h>
 #include <time.h>
 #include <errno.h>
@@ -260,10 +264,12 @@ munit_log_errno(MunitLogLevel level, FILE* fp, const char* msg) {
 
 void*
 munit_malloc_ex(const char* filename, int line, size_t size) {
+  void* ptr;
+
   if (size == 0)
     return NULL;
 
-  void* ptr = calloc(1, size);
+  ptr = calloc(1, size);
   if (MUNIT_UNLIKELY(ptr == NULL)) {
     munit_logf_ex(MUNIT_LOG_ERROR, filename, line, "Failed to allocate %" MUNIT_SIZE_MODIFIER "u bytes.", size);
   }
@@ -345,7 +351,7 @@ typedef LARGE_INTEGER MunitWallClock;
 #elif MUNIT_WALL_TIME_METHOD == MUNIT_WALL_TIME_METHOD_MACH_ABSOLUTE_TIME
 #include <mach/mach.h>
 #include <mach/mach_time.h>
-typedef uint64_t MunitWallClock;
+typedef munit_uint64_t MunitWallClock;
 #endif
 
 static void
@@ -525,7 +531,7 @@ munit_atomic_load(ATOMIC_UINT32_T* src) {
 
 static inline uint32_t
 munit_atomic_cas(ATOMIC_UINT32_T* dest, ATOMIC_UINT32_T* expected, ATOMIC_UINT32_T desired) {
-  _Bool ret;
+  bool ret;
 
 #pragma omp critical (munit_atomics)
   {
@@ -563,7 +569,7 @@ munit_atomic_cas(ATOMIC_UINT32_T* dest, ATOMIC_UINT32_T* expected, ATOMIC_UINT32
 #  warning No atomic implementation, PRNG will not be thread-safe
 #  define munit_atomic_store(dest, value)         do { *(dest) = (value); } while (0)
 #  define munit_atomic_load(src)                  (*(src))
-static inline _Bool
+static inline bool
 munit_atomic_cas(ATOMIC_UINT32_T* dest, ATOMIC_UINT32_T* expected, ATOMIC_UINT32_T desired) {
   if (*dest == *expected) {
     *dest = desired;
@@ -574,57 +580,57 @@ munit_atomic_cas(ATOMIC_UINT32_T* dest, ATOMIC_UINT32_T* expected, ATOMIC_UINT32
 }
 #endif
 
-#define MUNIT_PRNG_MULTIPLIER UINT32_C(747796405)
-#define MUNIT_PRNG_INCREMENT  UINT32_C(1729)
+#define MUNIT_PRNG_MULTIPLIER (747796405U)
+#define MUNIT_PRNG_INCREMENT  (1729U)
 
-static uint32_t
-munit_rand_next_state(uint32_t state) {
+static munit_uint32_t
+munit_rand_next_state(munit_uint32_t state) {
   return state * MUNIT_PRNG_MULTIPLIER + MUNIT_PRNG_INCREMENT;
 }
 
-static uint32_t
-munit_rand_from_state(uint32_t state) {
-  uint32_t res = ((state >> ((state >> 28) + 4)) ^ state) * UINT32_C(277803737);
+static munit_uint32_t
+munit_rand_from_state(munit_uint32_t state) {
+  munit_uint32_t res = ((state >> ((state >> 28) + 4)) ^ state) * (277803737U);
   res ^= res >> 22;
   return res;
 }
 
 void
-munit_rand_seed(uint32_t seed) {
-  uint32_t state = munit_rand_next_state(seed + MUNIT_PRNG_INCREMENT);
+munit_rand_seed(munit_uint32_t seed) {
+  munit_uint32_t state = munit_rand_next_state(seed + MUNIT_PRNG_INCREMENT);
   munit_atomic_store(&munit_rand_state, state);
 }
 
-static uint32_t
+static munit_uint32_t
 munit_rand_generate_seed(void) {
   MunitWallClock wc;
-  uint32_t seed, state;
+  munit_uint32_t seed, state;
 
   munit_wall_clock_get_time(&wc);
 #if MUNIT_WALL_TIME_METHOD == MUNIT_WALL_TIME_METHOD_CLOCK_GETTIME
-  seed = (uint32_t) wc.tv_nsec;
+  seed = (munit_uint32_t) wc.tv_nsec;
 #elif MUNIT_WALL_TIME_METHOD == MUNIT_WALL_TIME_METHOD_QUERYPERFORMANCECOUNTER
-  seed = (uint32_t) wc.QuadPart;
+  seed = (munit_uint32_t) wc.QuadPart;
 #elif MUNIT_WALL_TIME_METHOD == MUNIT_WALL_TIME_METHOD_GETTIMEOFDAY
-  seed = (uint32_t) wc.tv_usec;
+  seed = (munit_uint32_t) wc.tv_usec;
 #elif MUNIT_WALL_TIME_METHOD == MUNIT_WALL_TIME_METHOD_MACH_ABSOLUTE_TIME
-  seed = (uint32_t) wc;
+  seed = (munit_uint32_t) wc;
 #endif
 
   state = munit_rand_next_state(seed + MUNIT_PRNG_INCREMENT);
   return munit_rand_from_state(state);
 }
 
-static uint32_t
-munit_rand_state_uint32(uint32_t* state) {
-  const uint32_t old = *state;
+static munit_uint32_t
+munit_rand_state_uint32(munit_uint32_t* state) {
+  const munit_uint32_t old = *state;
   *state = munit_rand_next_state(old);
   return munit_rand_from_state(old);
 }
 
-uint32_t
+munit_uint32_t
 munit_rand_uint32(void) {
-  uint32_t old, state;
+  munit_uint32_t old, state;
 
   do {
     old = munit_atomic_load(&munit_rand_state);
@@ -635,15 +641,15 @@ munit_rand_uint32(void) {
 }
 
 static void
-munit_rand_state_memory(uint32_t* state, size_t size, uint8_t data[MUNIT_ARRAY_PARAM(size)]) {
-  size_t members_remaining = size / sizeof(uint32_t);
-  size_t bytes_remaining = size % sizeof(uint32_t);
-  uint8_t* b = data;
-  uint32_t rv;
+munit_rand_state_memory(munit_uint32_t* state, size_t size, munit_uint8_t data[MUNIT_ARRAY_PARAM(size)]) {
+  size_t members_remaining = size / sizeof(munit_uint32_t);
+  size_t bytes_remaining = size % sizeof(munit_uint32_t);
+  munit_uint8_t* b = data;
+  munit_uint32_t rv;
   while (members_remaining-- > 0) {
     rv = munit_rand_state_uint32(state);
-    memcpy(b, &rv, sizeof(uint32_t));
-    b += sizeof(uint32_t);
+    memcpy(b, &rv, sizeof(munit_uint32_t));
+    b += sizeof(munit_uint32_t);
   }
   if (bytes_remaining != 0) {
     rv = munit_rand_state_uint32(state);
@@ -652,8 +658,8 @@ munit_rand_state_memory(uint32_t* state, size_t size, uint8_t data[MUNIT_ARRAY_P
 }
 
 void
-munit_rand_memory(size_t size, uint8_t data[MUNIT_ARRAY_PARAM(size)]) {
-  uint32_t old, state;
+munit_rand_memory(size_t size, munit_uint8_t data[MUNIT_ARRAY_PARAM(size)]) {
+  munit_uint32_t old, state;
 
   do {
     state = old = munit_atomic_load(&munit_rand_state);
@@ -661,20 +667,20 @@ munit_rand_memory(size_t size, uint8_t data[MUNIT_ARRAY_PARAM(size)]) {
   } while (!munit_atomic_cas(&munit_rand_state, &old, state));
 }
 
-static uint32_t
-munit_rand_state_at_most(uint32_t* state, uint32_t salt, uint32_t max) {
-  if (max == UINT32_MAX)
-    return munit_rand_state_uint32(state) ^ salt;
-
-  max++;
-
+static munit_uint32_t
+munit_rand_state_at_most(munit_uint32_t* state, munit_uint32_t salt, munit_uint32_t max) {
   /* We want (UINT32_MAX + 1) % max, which in unsigned arithmetic is the same
    * as (UINT32_MAX + 1 - max) % max = -max % max. We compute -max using not
    * to avoid compiler warnings.
    */
-  const uint32_t min = (~max + UINT32_C(1)) % max;
+  const munit_uint32_t min = (~max + 1U) % max;
+  munit_uint32_t x;
 
-  uint32_t x;
+  if (max == (~((munit_uint32_t) 0U)))
+    return munit_rand_state_uint32(state) ^ salt;
+
+  max++;
+
   do {
     x = munit_rand_state_uint32(state) ^ salt;
   } while (x < min);
@@ -682,10 +688,10 @@ munit_rand_state_at_most(uint32_t* state, uint32_t salt, uint32_t max) {
   return x % max;
 }
 
-static uint32_t
-munit_rand_at_most(uint32_t salt, uint32_t max) {
-  uint32_t old, state;
-  uint32_t retval;
+static munit_uint32_t
+munit_rand_at_most(munit_uint32_t salt, munit_uint32_t max) {
+  munit_uint32_t old, state;
+  munit_uint32_t retval;
 
   do {
     state = old = munit_atomic_load(&munit_rand_state);
@@ -697,19 +703,20 @@ munit_rand_at_most(uint32_t salt, uint32_t max) {
 
 int
 munit_rand_int_range(int min, int max) {
+  munit_uint64_t range = (munit_uint64_t) max - (munit_uint64_t) min;
+
   if (min > max)
     return munit_rand_int_range(max, min);
 
-  uint64_t range = (uint64_t) max - (uint64_t) min;
-  if (range > UINT32_MAX)
-    range = UINT32_MAX;
+  if (range > (~((munit_uint32_t) 0U)))
+    range = (~((munit_uint32_t) 0U));
 
-  return min + munit_rand_at_most(0, (uint32_t) range);
+  return min + munit_rand_at_most(0, (munit_uint32_t) range);
 }
 
 double
 munit_rand_double(void) {
-  uint32_t old, state;
+  munit_uint32_t old, state;
   double retval = 0.0;
 
   do {
@@ -718,7 +725,7 @@ munit_rand_double(void) {
     /* See http://mumble.net/~campbell/tmp/random_real.c for how to do
      * this right.  Patches welcome if you feel that this is too
      * biased. */
-    retval = munit_rand_state_uint32(&state) / (UINT32_MAX + 1.0);
+    retval = munit_rand_state_uint32(&state) / ((~((munit_uint32_t) 0U)) + 1.0);
   } while (!munit_atomic_cas(&munit_rand_state, &old, state));
 
   return retval;
@@ -741,7 +748,7 @@ typedef struct {
   const char* prefix;
   const MunitSuite* suite;
   const char** tests;
-  uint32_t seed;
+  munit_uint32_t seed;
   unsigned int iterations;
   MunitParameter* parameters;
   bool single_parameter_mode;
@@ -755,7 +762,9 @@ typedef struct {
 
 const char*
 munit_parameters_get(const MunitParameter params[], const char* key) {
-  for (const MunitParameter* param = params ; param != NULL && param->name != NULL ; param++)
+  const MunitParameter* param;
+
+  for (param = params ; param != NULL && param->name != NULL ; param++)
     if (strcmp(param->name, key) == 0)
       return param->value;
   return NULL;
@@ -821,10 +830,10 @@ munit_maybe_free_concat(char* s, const char* prefix, const char* suffix) {
 }
 
 /* Cheap string hash function, just used to salt the PRNG. */
-static uint32_t
+static munit_uint32_t
 munit_str_hash(const char* name) {
   const char *p;
-  uint32_t h = UINT32_C(5381);
+  munit_uint32_t h = 5381U;
 
   for (p = name; *p != '\0'; p++)
     h = (h << 5) + h + *p;
@@ -834,7 +843,7 @@ munit_str_hash(const char* name) {
 
 static void
 munit_splice(int from, int to) {
-  uint8_t buf[1024];
+  munit_uint8_t buf[1024];
 #if !defined(_WIN32)
   ssize_t len;
   ssize_t bytes_written;
@@ -981,12 +990,27 @@ munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest*
     0.0, 0.0
 #endif
   };
+  unsigned int output_l;
+  bool first;
+  const MunitParameter* param;
+  FILE* stderr_buf;
+#if !defined(_WIN32)
+  int pipefd[2];
+  pid_t fork_pid;
+  int orig_stderr;
+  ssize_t bytes_written = 0;
+  ssize_t write_res;
+  ssize_t bytes_read = 0;
+  ssize_t read_res;
+  int status = 0;
+  pid_t changed_pid;
+#endif
 
   if (params != NULL) {
-    unsigned int output_l = 2;
+    output_l = 2;
     fputs("  ", MUNIT_OUTPUT_FILE);
-    bool first = true;
-    for (const MunitParameter* param = params ; param != NULL && param->name != NULL ; param++) {
+    first = true;
+    for (param = params ; param != NULL && param->name != NULL ; param++) {
       if (!first) {
         fputs(", ", MUNIT_OUTPUT_FILE);
         output_l += 2;
@@ -1003,7 +1027,7 @@ munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest*
 
   fflush(MUNIT_OUTPUT_FILE);
 
-  FILE* stderr_buf = NULL;
+  stderr_buf = NULL;
 #if !defined(_WIN32) || defined(__MINGW32__)
   stderr_buf = tmpfile();
 #else
@@ -1017,18 +1041,19 @@ munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest*
 
 #if !defined(_WIN32)
   if (runner->fork) {
-    int pipefd[2] = { -1, -1 };
+    pipefd[0] = -1;
+    pipefd[1] = -1;
     if (pipe(pipefd) != 0) {
       munit_log_errno(MUNIT_LOG_ERROR, stderr, "unable to create pipe");
       result = MUNIT_ERROR;
       goto print_result;
     }
 
-    const pid_t fork_pid = fork();
+    fork_pid = fork();
     if (fork_pid == 0) {
       close(pipefd[0]);
 
-      const int orig_stderr = munit_replace_stderr(stderr_buf);
+      orig_stderr = munit_replace_stderr(stderr_buf);
       munit_test_runner_exec(runner, test, params, &report);
 
       /* Note that we don't restore stderr.  This is so we can buffer
@@ -1036,9 +1061,8 @@ munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest*
        * asan/tsan/ubsan, valgrind, etc.) */
       close(orig_stderr);
 
-      ssize_t bytes_written = 0;
       do {
-        ssize_t write_res = write(pipefd[1], ((uint8_t*) (&report)) + bytes_written, sizeof(report) - bytes_written);
+        write_res = write(pipefd[1], ((munit_uint8_t*) (&report)) + bytes_written, sizeof(report) - bytes_written);
         if (write_res < 0) {
           if (stderr_buf != NULL) {
             munit_log_errno(MUNIT_LOG_ERROR, stderr, "unable to write to pipe");
@@ -1063,16 +1087,14 @@ munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest*
       result = MUNIT_ERROR;
     } else {
       close(pipefd[1]);
-      ssize_t bytes_read = 0;
       do {
-        ssize_t read_res = read(pipefd[0], ((uint8_t*) (&report)) + bytes_read, sizeof(report) - bytes_read);
+        read_res = read(pipefd[0], ((munit_uint8_t*) (&report)) + bytes_read, sizeof(report) - bytes_read);
         if (read_res < 1)
           break;
         bytes_read += read_res;
       } while (bytes_read < (ssize_t) sizeof(report));
 
-      int status = 0;
-      const pid_t changed_pid = waitpid(fork_pid, &status, 0);
+      changed_pid = waitpid(fork_pid, &status, 0);
 
       if (MUNIT_LIKELY(changed_pid == fork_pid) && MUNIT_LIKELY(WIFEXITED(status))) {
         if (bytes_read != sizeof(report)) {
@@ -1198,6 +1220,9 @@ munit_test_runner_run_test_wild(MunitTestRunner* runner,
                                 MunitParameter* params,
                                 MunitParameter* p) {
   const MunitParameterEnum* pe;
+  char** values;
+  MunitParameter* next;
+
   for (pe = test->parameters ; pe != NULL && pe->name != NULL ; pe++) {
     if (p->name == pe->name)
       break;
@@ -1206,8 +1231,8 @@ munit_test_runner_run_test_wild(MunitTestRunner* runner,
   if (pe == NULL)
     return;
 
-  for (char** values = pe->values ; *values != NULL ; values++) {
-    MunitParameter* next = p + 1;
+  for (values = pe->values ; *values != NULL ; values++) {
+    next = p + 1;
     p->value = *values;
     if (next->name == NULL) {
       munit_test_runner_run_test_with_params(runner, test, params);
@@ -1226,6 +1251,26 @@ munit_test_runner_run_test(MunitTestRunner* runner,
                            const MunitTest* test,
                            const char* prefix) {
   char* test_name = munit_maybe_concat(NULL, (char*) prefix, (char*) test->name);
+  /* The array of parameters to pass to
+   * munit_test_runner_run_test_with_params */
+  MunitParameter* params = NULL;
+  size_t params_l = 0;
+  /* Wildcard parameters are parameters which have possible values
+   * specified in the test, but no specific value was passed to the
+   * CLI.  That means we want to run the test once for every
+   * possible combination of parameter values or, if --single was
+   * passed to the CLI, a single time with a random set of
+   * parameters. */
+  MunitParameter* wild_params = NULL;
+  size_t wild_params_l = 0;
+  const MunitParameterEnum* pe;
+  const MunitParameter* cli_p;
+  bool filled;
+  unsigned int possible;
+  char** vals;
+  size_t first_wild;
+  const MunitParameter* wp;
+  int pidx;
 
   munit_rand_seed(runner->seed);
 
@@ -1235,25 +1280,12 @@ munit_test_runner_run_test(MunitTestRunner* runner,
     /* No parameters.  Simple, nice. */
     munit_test_runner_run_test_with_params(runner, test, NULL);
   } else {
-    /* The array of parameters to pass to
-     * munit_test_runner_run_test_with_params */
-    MunitParameter* params = NULL;
-    size_t params_l = 0;
-    /* Wildcard parameters are parameters which have possible values
-     * specified in the test, but no specific value was passed to the
-     * CLI.  That means we want to run the test once for every
-     * possible combination of parameter values or, if --single was
-     * passed to the CLI, a single time with a random set of
-     * parameters. */
-    MunitParameter* wild_params = NULL;
-    size_t wild_params_l = 0;
-
     fputc('\n', MUNIT_OUTPUT_FILE);
 
-    for (const MunitParameterEnum* pe = test->parameters ; pe != NULL && pe->name != NULL ; pe++) {
+    for (pe = test->parameters ; pe != NULL && pe->name != NULL ; pe++) {
       /* Did we received a value for this parameter from the CLI? */
-      bool filled = false;
-      for (const MunitParameter* cli_p = runner->parameters ; cli_p != NULL && cli_p->name != NULL ; cli_p++) {
+      filled = false;
+      for (cli_p = runner->parameters ; cli_p != NULL && cli_p->name != NULL ; cli_p++) {
         if (strcmp(cli_p->name, pe->name) == 0) {
           if (MUNIT_UNLIKELY(munit_parameters_add(&params_l, &params, pe->name, cli_p->value) != MUNIT_OK))
             goto cleanup;
@@ -1272,14 +1304,14 @@ munit_test_runner_run_test(MunitTestRunner* runner,
       /* If --single was passed to the CLI, choose a value from the
        * list of possibilities randomly. */
       if (runner->single_parameter_mode) {
-        unsigned int possible = 0;
-        for (char** vals = pe->values ; *vals != NULL ; vals++)
+        possible = 0;
+        for (vals = pe->values ; *vals != NULL ; vals++)
           possible++;
         /* We want the tests to be reproducible, even if you're only
          * running a single test, but we don't want every test with
          * the same number of parameters to choose the same parameter
          * number, so use the test name as a primitive salt. */
-        const int pidx = munit_rand_at_most(munit_str_hash(test_name), possible - 1);
+        pidx = munit_rand_at_most(munit_str_hash(test_name), possible - 1);
         if (MUNIT_UNLIKELY(munit_parameters_add(&params_l, &params, pe->name, pe->values[pidx]) != MUNIT_OK))
           goto cleanup;
       } else {
@@ -1291,9 +1323,9 @@ munit_test_runner_run_test(MunitTestRunner* runner,
     }
 
     if (wild_params_l != 0) {
-      const size_t first_wild = params_l;
-      for (const MunitParameter* wp = wild_params ; wp != NULL && wp->name != NULL ; wp++) {
-        for (const MunitParameterEnum* pe = test->parameters ; pe != NULL && pe->name != NULL && pe->values != NULL ; pe++) {
+      first_wild = params_l;
+      for (wp = wild_params ; wp != NULL && wp->name != NULL ; wp++) {
+        for (pe = test->parameters ; pe != NULL && pe->name != NULL && pe->values != NULL ; pe++) {
           if (strcmp(wp->name, pe->name) == 0) {
             if (MUNIT_UNLIKELY(munit_parameters_add(&params_l, &params, pe->name, pe->values[0]) != MUNIT_OK))
               goto cleanup;
@@ -1323,11 +1355,14 @@ munit_test_runner_run_suite(MunitTestRunner* runner,
                             const char* prefix) {
   size_t pre_l;
   char* pre = munit_maybe_concat(&pre_l, (char*) prefix, (char*) suite->prefix);
+  const MunitTest* test;
+  const char** test_name;
+  const MunitSuite* child_suite;
 
   /* Run the tests. */
-  for (const MunitTest* test = suite->tests ; test != NULL && test->test != NULL ; test++) {
+  for (test = suite->tests ; test != NULL && test->test != NULL ; test++) {
     if (runner->tests != NULL) { /* Specific tests were requested on the CLI */
-      for (const char** test_name = runner->tests ; test_name != NULL && *test_name != NULL ; test_name++) {
+      for (test_name = runner->tests ; test_name != NULL && *test_name != NULL ; test_name++) {
         if ((pre_l == 0 || strncmp(pre, *test_name, pre_l) == 0) &&
             strncmp(test->name, *test_name + pre_l, strlen(*test_name + pre_l)) == 0) {
           munit_test_runner_run_test(runner, test, pre);
@@ -1344,7 +1379,7 @@ munit_test_runner_run_suite(MunitTestRunner* runner,
     goto cleanup;
 
   /* Run any child suites. */
-  for (const MunitSuite* child_suite = suite->suites ; child_suite != NULL && child_suite->prefix != NULL ; child_suite++) {
+  for (child_suite = suite->suites ; child_suite != NULL && child_suite->prefix != NULL ; child_suite++) {
     munit_test_runner_run_suite(runner, child_suite, pre);
   }
 
@@ -1360,6 +1395,7 @@ munit_test_runner_run(MunitTestRunner* runner) {
 
 static void
 munit_print_help(int argc, char* const argv[MUNIT_ARRAY_PARAM(argc + 1)], void* user_data, const MunitArgument arguments[]) {
+  const MunitArgument* arg;
   (void) argc;
 
   printf("USAGE: %s [OPTIONS...] [TEST...]\n\n", argv[0]);
@@ -1406,13 +1442,15 @@ munit_print_help(int argc, char* const argv[MUNIT_ARRAY_PARAM(argc + 1)], void* 
          (MUNIT_CURRENT_VERSION >> 16) & 0xff,
          (MUNIT_CURRENT_VERSION >> 8) & 0xff,
          (MUNIT_CURRENT_VERSION >> 0) & 0xff);
-  for (const MunitArgument* arg = arguments ; arg != NULL && arg->name != NULL ; arg++)
+  for (arg = arguments ; arg != NULL && arg->name != NULL ; arg++)
     arg->write_help(arg, user_data);
 }
 
 static const MunitArgument*
 munit_arguments_find(const MunitArgument arguments[], const char* name) {
-  for (const MunitArgument* arg = arguments ; arg != NULL && arg->name != NULL ; arg++)
+  const MunitArgument* arg;
+
+  for (arg = arguments ; arg != NULL && arg->name != NULL ; arg++)
     if (strcmp(arg->name, name) == 0)
       return arg;
 
@@ -1423,8 +1461,13 @@ static void
 munit_suite_list_tests(const MunitSuite* suite, bool show_params, const char* prefix) {
   size_t pre_l;
   char* pre = munit_maybe_concat(&pre_l, (char*) prefix, (char*) suite->prefix);
+  const MunitTest* test;
+  const MunitParameterEnum* params;
+  bool first;
+  char** val;
+  const MunitSuite* child_suite;
 
-  for (const MunitTest* test = suite->tests ;
+  for (test = suite->tests ;
        test != NULL && test->name != NULL ;
        test++) {
     if (pre != NULL)
@@ -1432,15 +1475,15 @@ munit_suite_list_tests(const MunitSuite* suite, bool show_params, const char* pr
     puts(test->name);
 
     if (show_params) {
-      for (const MunitParameterEnum* params = test->parameters ;
+      for (params = test->parameters ;
            params != NULL && params->name != NULL ;
            params++) {
         fprintf(stdout, " - %s: ", params->name);
         if (params->values == NULL) {
           puts("Any");
         } else {
-          bool first = true;
-          for (char** val = params->values ;
+          first = true;
+          for (val = params->values ;
                *val != NULL ;
                val++ ) {
             if(!first) {
@@ -1456,7 +1499,7 @@ munit_suite_list_tests(const MunitSuite* suite, bool show_params, const char* pr
     }
   }
 
-  for (const MunitSuite* child_suite = suite->suites ; child_suite != NULL && child_suite->prefix != NULL ; child_suite++) {
+  for (child_suite = suite->suites ; child_suite != NULL && child_suite->prefix != NULL ; child_suite++) {
     munit_suite_list_tests(child_suite, show_params, pre);
   }
 
@@ -1468,9 +1511,13 @@ munit_stream_supports_ansi(FILE *stream) {
 #if !defined(_WIN32)
   return isatty(fileno(stream));
 #else
+
+#if !defined(__MINGW32__)
+  size_t ansicon_size = 0;
+#endif
+
   if (isatty(fileno(stream))) {
 #if !defined(__MINGW32__)
-    size_t ansicon_size = 0;
     getenv_s(&ansicon_size, NULL, 0, "ANSICON");
     return ansicon_size != 0;
 #else
@@ -1486,44 +1533,53 @@ munit_suite_main_custom(const MunitSuite* suite, void* user_data,
                         int argc, char* const argv[MUNIT_ARRAY_PARAM(argc + 1)],
                         const MunitArgument arguments[]) {
   int result = EXIT_FAILURE;
-  MunitTestRunner runner = {
-    .prefix = NULL,
-    .suite = NULL,
-    .tests = NULL,
-    .seed = 0,
-    .iterations = 0,
-    .parameters = NULL,
-    .single_parameter_mode = false,
-    .user_data = NULL,
-    .report = {
-      .successful = 0,
-      .skipped = 0,
-      .failed = 0,
-      .errored = 0,
-#if defined(MUNIT_ENABLE_TIMING)
-      .cpu_clock = 0.0,
-      .wall_clock = 0.0
-#endif
-    },
-    .colorize = false,
-#if !defined(_WIN32)
-    .fork = true,
-#else
-    .fork = false,
-#endif
-    .show_stderr = false,
-    .fatal_failures = false
-  };
+  MunitTestRunner runner;
   size_t parameters_size = 0;
   size_t tests_size = 0;
+  int arg;
 
+  char* envptr;
+  unsigned long ts;
+  char* endptr;
+  unsigned long long iterations;
+  MunitLogLevel level;
+  const MunitArgument* argument;
+  const char** runner_tests;
+  unsigned int tests_run;
+  unsigned int tests_total;
+
+  runner.prefix = NULL;
+  runner.suite = NULL;
+  runner.tests = NULL;
+  runner.seed = 0;
+  runner.iterations = 0;
+  runner.parameters = NULL;
+  runner.single_parameter_mode = false;
+  runner.user_data = NULL;
+
+  runner.report.successful = 0;
+  runner.report.skipped = 0;
+  runner.report.failed = 0;
+  runner.report.errored = 0;
+#if defined(MUNIT_ENABLE_TIMING)
+  runner.report.cpu_clock = 0.0;
+  runner.report.wall_clock = 0.0;
+#endif
+
+  runner.colorize = false;
+#if !defined(_WIN32)
+  runner.fork = true;
+#else
+  runner.fork = false;
+#endif
+  runner.show_stderr = false;
+  runner.fatal_failures = false;
   runner.suite = suite;
   runner.user_data = user_data;
-
   runner.seed = munit_rand_generate_seed();
   runner.colorize = munit_stream_supports_ansi(MUNIT_OUTPUT_FILE);
 
-  for (int arg = 1 ; arg < argc ; arg++) {
+  for (arg = 1 ; arg < argc ; arg++) {
     if (strncmp("--", argv[arg], 2) == 0) {
       if (strcmp("seed", argv[arg] + 2) == 0) {
         if (arg + 1 >= argc) {
@@ -1531,13 +1587,13 @@ munit_suite_main_custom(const MunitSuite* suite, void* user_data,
           goto cleanup;
         }
 
-        char* envptr = argv[arg + 1];
-        unsigned long long ts = strtoull(argv[arg + 1], &envptr, 0);
-        if (*envptr != '\0' || ts > UINT32_MAX) {
+        envptr = argv[arg + 1];
+        ts = strtoul(argv[arg + 1], &envptr, 0);
+        if (*envptr != '\0' || ts > (~((munit_uint32_t) 0U))) {
           munit_logf_internal(MUNIT_LOG_ERROR, stderr, "invalid value ('%s') passed to %s", argv[arg + 1], argv[arg]);
           goto cleanup;
         }
-        runner.seed = (uint32_t) ts;
+        runner.seed = (munit_uint32_t) ts;
 
         arg++;
       } else if (strcmp("iterations", argv[arg] + 2) == 0) {
@@ -1546,8 +1602,8 @@ munit_suite_main_custom(const MunitSuite* suite, void* user_data,
           goto cleanup;
         }
 
-        char* endptr = argv[arg + 1];
-        unsigned long long iterations = strtoull(argv[arg + 1], &endptr, 0);
+        endptr = argv[arg + 1];
+        iterations = strtoul(argv[arg + 1], &endptr, 0);
         if (*endptr != '\0' || iterations > UINT_MAX) {
           munit_logf_internal(MUNIT_LOG_ERROR, stderr, "invalid value ('%s') passed to %s", argv[arg + 1], argv[arg]);
           goto cleanup;
@@ -1607,8 +1663,6 @@ munit_suite_main_custom(const MunitSuite* suite, void* user_data,
         runner.fatal_failures = true;
       } else if (strcmp("log-visible", argv[arg] + 2) == 0 ||
                  strcmp("log-fatal", argv[arg] + 2) == 0) {
-        MunitLogLevel level;
-
         if (arg + 1 >= argc) {
           munit_logf_internal(MUNIT_LOG_ERROR, stderr, "%s requires an argument", argv[arg]);
           goto cleanup;
@@ -1642,7 +1696,7 @@ munit_suite_main_custom(const MunitSuite* suite, void* user_data,
         result = EXIT_SUCCESS;
         goto cleanup;
       } else {
-        const MunitArgument* argument = munit_arguments_find(arguments, argv[arg] + 2);
+        argument = munit_arguments_find(arguments, argv[arg] + 2);
         if (argument == NULL) {
           munit_logf_internal(MUNIT_LOG_ERROR, stderr, "unknown argument ('%s')", argv[arg]);
           goto cleanup;
@@ -1652,7 +1706,7 @@ munit_suite_main_custom(const MunitSuite* suite, void* user_data,
           goto cleanup;
       }
     } else {
-      const char** runner_tests = realloc((void*) runner.tests, sizeof(char*) * (tests_size + 2));
+      runner_tests = realloc((void*) runner.tests, sizeof(char*) * (tests_size + 2));
       if (runner_tests == NULL) {
         munit_log_internal(MUNIT_LOG_ERROR, stderr, "failed to allocate memory");
         goto cleanup;
@@ -1668,8 +1722,8 @@ munit_suite_main_custom(const MunitSuite* suite, void* user_data,
 
   munit_test_runner_run(&runner);
 
-  const unsigned int tests_run = runner.report.successful + runner.report.failed + runner.report.errored;
-  const unsigned int tests_total = tests_run + runner.report.skipped;
+  tests_run = runner.report.successful + runner.report.failed + runner.report.errored;
+  tests_total = tests_run + runner.report.skipped;
   if (tests_run == 0) {
     fprintf(stderr, "No tests run, %d (100%%) skipped.\n", runner.report.skipped);
   } else {

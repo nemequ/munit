@@ -28,14 +28,98 @@
 #include <stdarg.h>
 #include <stdlib.h>
 
-#if defined(__cplusplus)
-extern "C" {
-#endif
-
 #define MUNIT_VERSION(major, minor, revision) \
   (((major) << 16) | ((minor) << 8) | (revision))
 
-#define MUNIT_CURRENT_VERSION MUNIT_VERSION(0, 3, 1)
+#define MUNIT_CURRENT_VERSION MUNIT_VERSION(0, 4, 0)
+
+#if defined(_MSC_VER) && (_MSC_VER < 1600)
+#  define munit_int8_t   __int8
+#  define munit_uint8_t  unsigned __int8
+#  define munit_int16_t  __int16
+#  define munit_uint16_t unsigned __int16
+#  define munit_int32_t  __int32
+#  define munit_uint32_t unsigned __int32
+#  define munit_int64_t  __int64
+#  define munit_uint64_t unsigned __int64
+#else
+#  include <stdint.h>
+#  define munit_int8_t   int8_t
+#  define munit_uint8_t  uint8_t
+#  define munit_int16_t  int16_t
+#  define munit_uint16_t uint16_t
+#  define munit_int32_t  int32_t
+#  define munit_uint32_t uint32_t
+#  define munit_int64_t  int64_t
+#  define munit_uint64_t uint64_t
+#endif
+
+#if defined(_MSC_VER) && (_MSC_VER < 1800)
+#  if !defined(PRIi8)
+#    define PRIi8 "i"
+#  endif
+#  if !defined(PRIi16)
+#    define PRIi16 "i"
+#  endif
+#  if !defined(PRIi32)
+#    define PRIi32 "i"
+#  endif
+#  if !defined(PRIi64)
+#    define PRIi64 "I64i"
+#  endif
+#  if !defined(PRId8)
+#    define PRId8 "d"
+#  endif
+#  if !defined(PRId16)
+#    define PRId16 "d"
+#  endif
+#  if !defined(PRId32)
+#    define PRId32 "d"
+#  endif
+#  if !defined(PRId64)
+#    define PRId64 "I64d"
+#  endif
+#  if !defined(PRIx8)
+#    define PRIx8 "x"
+#  endif
+#  if !defined(PRIx16)
+#    define PRIx16 "x"
+#  endif
+#  if !defined(PRIx32)
+#    define PRIx32 "x"
+#  endif
+#  if !defined(PRIx64)
+#    define PRIx64 "I64x"
+#  endif
+#  if !defined(PRIu8)
+#    define PRIu8 "u"
+#  endif
+#  if !defined(PRIu16)
+#    define PRIu16 "u"
+#  endif
+#  if !defined(PRIu32)
+#    define PRIu32 "u"
+#  endif
+#  if !defined(PRIu64)
+#    define PRIu64 "I64u"
+#  endif
+#  if !defined(bool)
+#    define bool int
+#  endif
+#  if !defined(true)
+#    define true (!0)
+#  endif
+#  if !defined(false)
+#    define false (!!0)
+#  endif
+#else
+#  include <inttypes.h>
+#  include <stdbool.h>
+#endif
+
+#if defined(__cplusplus)
+extern "C" {
+#endif
 
 #if defined(__GNUC__)
 #  define MUNIT_LIKELY(expr) (__builtin_expect ((expr), 1))
@@ -190,23 +274,22 @@ void munit_errorf_ex(const char* filename, int line, const char* format, ...);
 #define munit_assert_ptr(a, op, b) \
   munit_assert_type(const void*, "p", a, op, b)
 
-#include <inttypes.h>
-#define munit_assert_int8(a, op, b) \
-  munit_assert_type(int8_t, PRIi8, a, op, b)
+#define munit_assert_int8(a, op, b)             \
+  munit_assert_type(munit_int8_t, PRIi8, a, op, b)
 #define munit_assert_uint8(a, op, b) \
-  munit_assert_type(uint8_t, PRIu8, a, op, b)
+  munit_assert_type(munit_uint8_t, PRIu8, a, op, b)
 #define munit_assert_int16(a, op, b) \
-  munit_assert_type(int16_t, PRIi16, a, op, b)
+  munit_assert_type(munit_int16_t, PRIi16, a, op, b)
 #define munit_assert_uint16(a, op, b) \
-  munit_assert_type(uint16_t, PRIu16, a, op, b)
+  munit_assert_type(munit_uint16_t, PRIu16, a, op, b)
 #define munit_assert_int32(a, op, b) \
-  munit_assert_type(int32_t, PRIi32, a, op, b)
+  munit_assert_type(munit_int32_t, PRIi32, a, op, b)
 #define munit_assert_uint32(a, op, b) \
-  munit_assert_type(uint32_t, PRIu32, a, op, b)
+  munit_assert_type(munit_uint32_t, PRIu32, a, op, b)
 #define munit_assert_int64(a, op, b) \
-  munit_assert_type(int64_t, PRIi64, a, op, b)
+  munit_assert_type(munit_int64_t, PRIi64, a, op, b)
 #define munit_assert_uint64(a, op, b) \
-  munit_assert_type(uint64_t, PRIu64, a, op, b)
+  munit_assert_type(munit_uint64_t, PRIu64, a, op, b)
 
 #define munit_assert_double_equal(a, b, precision) \
   do { \
@@ -309,11 +392,11 @@ void* munit_malloc_ex(const char* filename, int line, size_t size);
 
 /*** Random number generation ***/
 
-void munit_rand_seed(uint32_t seed);
-uint32_t munit_rand_uint32(void);
+void munit_rand_seed(munit_uint32_t seed);
+munit_uint32_t munit_rand_uint32(void);
 int munit_rand_int_range(int min, int max);
 double munit_rand_double(void);
-void munit_rand_memory(size_t size, uint8_t buffer[MUNIT_ARRAY_PARAM(size)]);
+void munit_rand_memory(size_t size, munit_uint8_t buffer[MUNIT_ARRAY_PARAM(size)]);
 
 /*** Tests and Suites ***/
 
@@ -384,7 +467,7 @@ typedef struct MunitArgument_ MunitArgument;
 
 struct MunitArgument_ {
   char* name;
-  _Bool (* parse_argument)(const MunitSuite* suite, void* user_data, int* arg, int argc, char* const argv[MUNIT_ARRAY_PARAM(argc + 1)]);
+  bool (* parse_argument)(const MunitSuite* suite, void* user_data, int* arg, int argc, char* const argv[MUNIT_ARRAY_PARAM(argc + 1)]);
   void (* write_help)(const MunitArgument* argument, void* user_data);
 };
 
