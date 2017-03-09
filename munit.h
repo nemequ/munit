@@ -27,6 +27,7 @@
 
 #include <stdarg.h>
 #include <stdlib.h>
+#include <stdint.h>
 
 #if defined(__cplusplus)
 extern "C" {
@@ -190,8 +191,58 @@ void munit_errorf_ex(const char* filename, int line, const char* format, ...);
 #define munit_assert_ptr(a, op, b) \
   munit_assert_type(const void*, "p", a, op, b)
 
-#include <inttypes.h>
-#define munit_assert_int8(a, op, b) \
+#if defined(_MSC_VER) && (_MSC_VER <= 1700)
+#  if !defined(PRIi8)
+#    define PRIi8 "i"
+#  endif
+#  if !defined(PRIi16)
+#    define PRIi16 "i"
+#  endif
+#  if !defined(PRIi32)
+#    define PRIi32 "i"
+#  endif
+#  if !defined(PRIi64)
+#    define PRIi64 "I64i"
+#  endif
+#  if !defined(PRId8)
+#    define PRId8 "d"
+#  endif
+#  if !defined(PRId16)
+#    define PRId16 "d"
+#  endif
+#  if !defined(PRId32)
+#    define PRId32 "d"
+#  endif
+#  if !defined(PRId64)
+#    define PRId64 "I64d"
+#  endif
+#  if !defined(PRIx8)
+#    define PRIx8 "x"
+#  endif
+#  if !defined(PRIx16)
+#    define PRIx16 "x"
+#  endif
+#  if !defined(PRIx32)
+#    define PRIx32 "x"
+#  endif
+#  if !defined(PRIx64)
+#    define PRIx64 "I64x"
+#  endif
+#  if !defined(bool)
+#    define bool int
+#  endif
+#  if !defined(true)
+#    define true (!0)
+#  endif
+#  if !defined(false)
+#    define false (!!0)
+#  endif
+#else
+#  include <inttypes.h>
+#  include <stdbool.h>
+#endif
+
+#define munit_assert_int8(a, op, b)             \
   munit_assert_type(int8_t, PRIi8, a, op, b)
 #define munit_assert_uint8(a, op, b) \
   munit_assert_type(uint8_t, PRIu8, a, op, b)
@@ -384,7 +435,7 @@ typedef struct MunitArgument_ MunitArgument;
 
 struct MunitArgument_ {
   char* name;
-  _Bool (* parse_argument)(const MunitSuite* suite, void* user_data, int* arg, int argc, char* const argv[MUNIT_ARRAY_PARAM(argc + 1)]);
+  bool (* parse_argument)(const MunitSuite* suite, void* user_data, int* arg, int argc, char* const argv[MUNIT_ARRAY_PARAM(argc + 1)]);
   void (* write_help)(const MunitArgument* argument, void* user_data);
 };
 
