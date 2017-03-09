@@ -10,8 +10,12 @@ environment:
   #   MSVC_VER: 12
   # - ARCHITECTURE: x86
   #   MSVC_VER: 12
+  # - ARCHITECTURE: x86
+  #   MSVC_VER: 11
+  # - ARCHITECTURE: x86
+  #   MSVC_VER: 10
   - ARCHITECTURE: x86
-    MSVC_VER: 11
+    MSVC_VER: 9
 
 branches:
   except:

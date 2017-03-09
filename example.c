@@ -122,7 +122,7 @@ static MunitResult
 test_rand(const MunitParameter params[], void* user_data) {
   int random_int;
   double random_dbl;
-  uint8_t data[5];
+  munit_uint8_t data[5];
 
   (void) params;
   (void) user_data;
