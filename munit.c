@@ -703,10 +703,14 @@ munit_rand_at_most(munit_uint32_t salt, munit_uint32_t max) {
 
 int
 munit_rand_int_range(int min, int max) {
-  munit_uint64_t range = (munit_uint64_t) max - (munit_uint64_t) min;
+  munit_uint64_t range;
 
-  if (min > max)
+  if (min == max)
+    return min;
+  else if (min > max)
     return munit_rand_int_range(max, min);
+
+  range = (munit_uint64_t) max - (munit_uint64_t) min;
 
   if (range > (~((munit_uint32_t) 0U)))
     range = (~((munit_uint32_t) 0U));
