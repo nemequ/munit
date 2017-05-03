@@ -35,6 +35,8 @@ matrix:
     - os: osx
       env: COMPILER=gcc-5 UBSAN=y
     - os: osx
+      env: COMPILER=gcc-5 CSTD=11 UBSAN=y
+    - os: osx
       env: COMPILER=gcc-4.9 ASAN=y UBSAN=y
     - os: osx
       env: COMPILER=gcc-4.8 ASAN=y
