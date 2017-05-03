@@ -279,191 +279,480 @@ munit_malloc_ex(const char* filename, int line, size_t size) {
 
 /*** Timer code ***/
 
-/* This section is definitely a bit messy, patches to clean it up
- * gratefully accepted. */
+#if defined(MUNIT_ENABLE_TIMING)
 
-#define MUNIT_CPU_TIME_METHOD_CLOCK_GETTIME 0
-#define MUNIT_CPU_TIME_METHOD_CLOCK 1
-#define MUNIT_CPU_TIME_METHOD_GETPROCESSTIMES 2
-#define MUNIT_CPU_TIME_METHOD_GETRUSAGE 3
+#define psnip_uint64_t munit_uint64_t
+#define psnip_uint32_t munit_uint32_t
 
-#define MUNIT_WALL_TIME_METHOD_CLOCK_GETTIME 8
-#define MUNIT_WALL_TIME_METHOD_GETTIMEOFDAY 9
-#define MUNIT_WALL_TIME_METHOD_QUERYPERFORMANCECOUNTER 10
-#define MUNIT_WALL_TIME_METHOD_MACH_ABSOLUTE_TIME 11
+/* Code copied from portable-snippets
+ * <https://github.com/nemequ/portable-snippets/>.  If you need to
+ * change something, please do it there so we can keep the code in
+ * sync. */
 
-/* clock_gettime gives us a good high-resolution timer, but on some
- * platforms you have to link in librt.  I don't want to force a
- * complicated build system, so by default we'll only use
- * clock_gettime on C libraries where we know the standard c library
- * is sufficient.  If you would like to test for librt in your build
- * system and add it if necessary, you can define
- * MUNIT_ALLOW_CLOCK_GETTIME and we'll assume that the necessary
- * libraries are available. */
-#if !defined(MUNIT_ALLOW_CLOCK_GETTIME)
-#  if defined(__GLIBC__) && defined(__GLIBC_MINOR__)
-#    if __GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ >= 17)
-#      define MUNIT_ALLOW_CLOCK_GETTIME
+/* Clocks (v1)
+ * Portable Snippets - https://gitub.com/nemequ/portable-snippets
+ * Created by Evan Nemerson <evan@nemerson.com>
+ *
+ *   To the extent possible under law, the authors have waived all
+ *   copyright and related or neighboring rights to this code.  For
+ *   details, see the Creative Commons Zero 1.0 Universal license at
+ *   https://creativecommons.org/publicdomain/zero/1.0/
+ */
+
+#if !defined(PSNIP_CLOCK_H)
+#define PSNIP_CLOCK_H
+
+#if !defined(psnip_uint64_t)
+#  include "../exact-int/exact-int.h"
+#endif
+
+#if !defined(PSNIP_CLOCK_STATIC_INLINE)
+#  if defined(__GNUC__)
+#    define PSNIP_CLOCK__COMPILER_ATTRIBUTES __attribute__((__unused__))
+#  else
+#    define PSNIP_CLOCK__COMPILER_ATTRIBUTES
+#  endif
+
+#  define PSNIP_CLOCK__FUNCTION PSNIP_CLOCK__COMPILER_ATTRIBUTES static
+#endif
+
+enum PsnipClockType {
+  /* This clock provides the current time, in units since 1970-01-01
+   * 00:00:00 UTC not including leap seconds.  In other words, UNIX
+   * time.  Keep in mind that this clock doesn't account for leap
+   * seconds, and can go backwards (think NTP adjustments). */
+  PSNIP_CLOCK_TYPE_WALL = 1,
+  /* The CPU time is a clock which increases only when the current
+   * process is active (i.e., it doesn't increment while blocking on
+   * I/O). */
+  PSNIP_CLOCK_TYPE_CPU = 2,
+  /* Monotonic time is always running (unlike CPU time), but it only
+     ever moves forward unless you reboot the system.  Things like NTP
+     adjustments have no effect on this clock. */
+  PSNIP_CLOCK_TYPE_MONOTONIC = 3
+};
+
+struct PsnipClockTimespec {
+  psnip_uint64_t seconds;
+  psnip_uint64_t nanoseconds;
+};
+
+/* Methods we support: */
+
+#define PSNIP_CLOCK_METHOD_CLOCK_GETTIME                   1
+#define PSNIP_CLOCK_METHOD_TIME                            2
+#define PSNIP_CLOCK_METHOD_GETTIMEOFDAY                    3
+#define PSNIP_CLOCK_METHOD_QUERYPERFORMANCECOUNTER         4
+#define PSNIP_CLOCK_METHOD_MACH_ABSOLUTE_TIME              5
+#define PSNIP_CLOCK_METHOD_CLOCK                           6
+#define PSNIP_CLOCK_METHOD_GETPROCESSTIMES                 7
+#define PSNIP_CLOCK_METHOD_GETRUSAGE                       8
+#define PSNIP_CLOCK_METHOD_GETSYSTEMTIMEPRECISEASFILETIME  9
+#define PSNIP_CLOCK_METHOD_GETTICKCOUNT64                 10
+
+#include <assert.h>
+
+#if defined(HEDLEY_UNREACHABLE)
+#  define PSNIP_CLOCK_UNREACHABLE() HEDLEY_UNREACHABLE()
+#else
+#  define PSNIP_CLOCK_UNREACHABLE() assert(0)
+#endif
+
+/* Choose an implementation */
+
+/* #undef PSNIP_CLOCK_WALL_METHOD */
+/* #undef PSNIP_CLOCK_CPU_METHOD */
+/* #undef PSNIP_CLOCK_MONOTONIC_METHOD */
+
+/* We want to be able to detect the libc implementation, so we include
+   <limits.h> (<features.h> isn't available everywhere). */
+
+#if defined(__unix__) || defined(__unix) || defined(__linux__)
+#  include <limits.h>
+#  include <unistd.h>
+#endif
+
+#if defined(_POSIX_TIMERS) && (_POSIX_TIMERS > 0)
+/* These are known to work without librt.  If you know of others
+ * please let us know so we can add them. */
+#  if \
+  (defined(__GLIBC__) && (__GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ >= 17))) || \
+  (defined(__FreeBSD__))
+#    define PSNIP_CLOCK_HAVE_CLOCK_GETTIME
+#  elif !defined(PSNIP_CLOCK_NO_LIBRT)
+#    define PSNIP_CLOCK_HAVE_CLOCK_GETTIME
+#  endif
+#endif
+
+#if defined(_WIN32)
+#  if !defined(PSNIP_CLOCK_CPU_METHOD)
+#    define PSNIP_CLOCK_CPU_METHOD PSNIP_CLOCK_METHOD_GETPROCESSTIMES
+#  endif
+#  if !defined(PSNIP_CLOCK_MONOTONIC_METHOD)
+#    define PSNIP_CLOCK_MONOTONIC_METHOD PSNIP_CLOCK_METHOD_QUERYPERFORMANCECOUNTER
+#  endif
+#endif
+
+#if defined(__MACH__)
+#  if !defined(PSNIP_CLOCK_MONOTONIC_METHOD)
+#    define PSNIP_CLOCK_MONOTONIC_METHOD PSNIP_CLOCK_METHOD_MACH_ABSOLUTE_TIME
+#  endif
+#endif
+
+#if defined(PSNIP_CLOCK_HAVE_CLOCK_GETTIME)
+#  include <time.h>
+#  if !defined(PSNIP_CLOCK_WALL_METHOD)
+#    if defined(CLOCK_REALTIME_PRECISE)
+#      define PSNIP_CLOCK_WALL_METHOD PSNIP_CLOCK_METHOD_CLOCK_GETTIME
+#      define PSNIP_CLOCK_CLOCK_GETTIME_WALL CLOCK_REALTIME_PRECISE
+#    elif !defined(__sun)
+#      define PSNIP_CLOCK_WALL_METHOD PSNIP_CLOCK_METHOD_CLOCK_GETTIME
+#      define PSNIP_CLOCK_CLOCK_GETTIME_WALL CLOCK_REALTIME
+#    endif
+#  endif
+#  if !defined(PSNIP_CLOCK_CPU_METHOD)
+#    if defined(_POSIX_CPUTIME) || defined(CLOCK_PROCESS_CPUTIME_ID)
+#      define PSNIP_CLOCK_CPU_METHOD PSNIP_CLOCK_METHOD_CLOCK_GETTIME
+#      define PSNIP_CLOCK_CLOCK_GETTIME_CPU CLOCK_PROCESS_CPUTIME_ID
+#    elif defined(CLOCK_VIRTUAL)
+#      define PSNIP_CLOCK_CPU_METHOD PSNIP_CLOCK_METHOD_CLOCK_GETTIME
+#      define PSNIP_CLOCK_CLOCK_GETTIME_CPU CLOCK_VIRTUAL
+#    endif
+#  endif
+#  if !defined(PSNIP_CLOCK_MONOTONIC_METHOD)
+#    if defined(CLOCK_MONOTONIC_RAW)
+#      define PSNIP_CLOCK_MONOTONIC_METHOD PSNIP_CLOCK_METHOD_CLOCK_GETTIME
+#      define PSNIP_CLOCK_CLOCK_GETTIME_MONOTONIC CLOCK_MONOTONIC
+#    elif defined(CLOCK_MONOTONIC_PRECISE)
+#      define PSNIP_CLOCK_MONOTONIC_METHOD PSNIP_CLOCK_METHOD_CLOCK_GETTIME
+#      define PSNIP_CLOCK_CLOCK_GETTIME_MONOTONIC CLOCK_MONOTONIC_PRECISE
+#    elif defined(_POSIX_MONOTONIC_CLOCK) || defined(CLOCK_MONOTONIC)
+#      define PSNIP_CLOCK_MONOTONIC_METHOD PSNIP_CLOCK_METHOD_CLOCK_GETTIME
+#      define PSNIP_CLOCK_CLOCK_GETTIME_MONOTONIC CLOCK_MONOTONIC
 #    endif
 #  endif
 #endif
 
-/* Solaris advertises _POSIX_TIMERS, and defines
- * CLOCK_PROCESS_CPUTIME_ID and CLOCK_VIRTUAL, but doesn't actually
- * implement them.  Mingw requires you to link to pthreads instead of
- * librt (or just libc). */
-#if defined(MUNIT_ALLOW_CLOCK_GETTIME) && ((defined(_POSIX_TIMERS) && (_POSIX_TIMERS > 0)) && !defined(__sun))
-#  define MUNIT_CPU_TIME_METHOD  MUNIT_CPU_TIME_METHOD_CLOCK_GETTIME
-#  define MUNIT_WALL_TIME_METHOD MUNIT_WALL_TIME_METHOD_CLOCK_GETTIME
-#elif defined(_WIN32)
-#  define MUNIT_CPU_TIME_METHOD  MUNIT_CPU_TIME_METHOD_GETPROCESSTIMES
-#  define MUNIT_WALL_TIME_METHOD MUNIT_WALL_TIME_METHOD_QUERYPERFORMANCECOUNTER
-#elif defined(__MACH__)
-#  define MUNIT_CPU_TIME_METHOD  MUNIT_CPU_TIME_METHOD_GETRUSAGE
-#  define MUNIT_WALL_TIME_METHOD MUNIT_WALL_TIME_METHOD_MACH_ABSOLUTE_TIME
+#if defined(_POSIX_VERSION) && (_POSIX_VERSION >= 200112L)
+#  if !defined(PSNIP_CLOCK_WALL_METHOD)
+#    define PSNIP_CLOCK_WALL_METHOD PSNIP_CLOCK_METHOD_GETTIMEOFDAY
+#  endif
+#endif
+
+#if !defined(PSNIP_CLOCK_WALL_METHOD)
+#  define PSNIP_CLOCK_WALL_METHOD PSNIP_CLOCK_METHOD_TIME
+#endif
+
+#if !defined(PSNIP_CLOCK_CPU_METHOD)
+#  define PSNIP_CLOCK_CPU_METHOD PSNIP_CLOCK_METHOD_CLOCK
+#endif
+
+/* Primarily here for testing. */
+#if !defined(PSNIP_CLOCK_MONOTONIC_METHOD) && defined(PSNIP_CLOCK_REQUIRE_MONOTONIC)
+#  error No monotonic clock found.
+#endif
+
+/* Implementations */
+
+#if \
+  (defined(PSNIP_CLOCK_CPU_METHOD)       && (PSNIP_CLOCK_CPU_METHOD       == PSNIP_CLOCK_METHOD_CLOCK_GETTIME)) || \
+  (defined(PSNIP_CLOCK_WALL_METHOD)      && (PSNIP_CLOCK_WALL_METHOD      == PSNIP_CLOCK_METHOD_CLOCK_GETTIME)) || \
+  (defined(PSNIP_CLOCK_MONOTONIC_METHOD) && (PSNIP_CLOCK_MONOTONIC_METHOD == PSNIP_CLOCK_METHOD_CLOCK_GETTIME)) || \
+  (defined(PSNIP_CLOCK_CPU_METHOD)       && (PSNIP_CLOCK_CPU_METHOD       == PSNIP_CLOCK_METHOD_CLOCK)) || \
+  (defined(PSNIP_CLOCK_WALL_METHOD)      && (PSNIP_CLOCK_WALL_METHOD      == PSNIP_CLOCK_METHOD_CLOCK)) || \
+  (defined(PSNIP_CLOCK_MONOTONIC_METHOD) && (PSNIP_CLOCK_MONOTONIC_METHOD == PSNIP_CLOCK_METHOD_CLOCK)) || \
+  (defined(PSNIP_CLOCK_CPU_METHOD)       && (PSNIP_CLOCK_CPU_METHOD       == PSNIP_CLOCK_METHOD_TIME)) || \
+  (defined(PSNIP_CLOCK_WALL_METHOD)      && (PSNIP_CLOCK_WALL_METHOD      == PSNIP_CLOCK_METHOD_TIME)) || \
+  (defined(PSNIP_CLOCK_MONOTONIC_METHOD) && (PSNIP_CLOCK_MONOTONIC_METHOD == PSNIP_CLOCK_METHOD_TIME))
+#  include <time.h>
+#endif
+
+#if \
+  (defined(PSNIP_CLOCK_CPU_METHOD)       && (PSNIP_CLOCK_CPU_METHOD       == PSNIP_CLOCK_METHOD_GETTIMEOFDAY)) || \
+  (defined(PSNIP_CLOCK_WALL_METHOD)      && (PSNIP_CLOCK_WALL_METHOD      == PSNIP_CLOCK_METHOD_GETTIMEOFDAY)) || \
+  (defined(PSNIP_CLOCK_MONOTONIC_METHOD) && (PSNIP_CLOCK_MONOTONIC_METHOD == PSNIP_CLOCK_METHOD_GETTIMEOFDAY))
+#  include <sys/time.h>
+#endif
+
+#if \
+  (defined(PSNIP_CLOCK_CPU_METHOD)       && (PSNIP_CLOCK_CPU_METHOD       == PSNIP_CLOCK_METHOD_GETPROCESSTIMES)) || \
+  (defined(PSNIP_CLOCK_WALL_METHOD)      && (PSNIP_CLOCK_WALL_METHOD      == PSNIP_CLOCK_METHOD_GETPROCESSTIMES)) || \
+  (defined(PSNIP_CLOCK_MONOTONIC_METHOD) && (PSNIP_CLOCK_MONOTONIC_METHOD == PSNIP_CLOCK_METHOD_GETPROCESSTIMES)) || \
+  (defined(PSNIP_CLOCK_CPU_METHOD)       && (PSNIP_CLOCK_CPU_METHOD       == PSNIP_CLOCK_METHOD_GETTICKCOUNT64)) || \
+  (defined(PSNIP_CLOCK_WALL_METHOD)      && (PSNIP_CLOCK_WALL_METHOD      == PSNIP_CLOCK_METHOD_GETTICKCOUNT64)) || \
+  (defined(PSNIP_CLOCK_MONOTONIC_METHOD) && (PSNIP_CLOCK_MONOTONIC_METHOD == PSNIP_CLOCK_METHOD_GETTICKCOUNT64))
+#  include <windows.h>
+#endif
+
+#if \
+  (defined(PSNIP_CLOCK_CPU_METHOD)       && (PSNIP_CLOCK_CPU_METHOD       == PSNIP_CLOCK_METHOD_GETRUSAGE)) || \
+  (defined(PSNIP_CLOCK_WALL_METHOD)      && (PSNIP_CLOCK_WALL_METHOD      == PSNIP_CLOCK_METHOD_GETRUSAGE)) || \
+  (defined(PSNIP_CLOCK_MONOTONIC_METHOD) && (PSNIP_CLOCK_MONOTONIC_METHOD == PSNIP_CLOCK_METHOD_GETRUSAGE))
+#  include <sys/time.h>
+#  include <sys/resource.h>
+#endif
+
+#if \
+  (defined(PSNIP_CLOCK_CPU_METHOD)       && (PSNIP_CLOCK_CPU_METHOD       == PSNIP_CLOCK_METHOD_MACH_ABSOLUTE_TIME)) || \
+  (defined(PSNIP_CLOCK_WALL_METHOD)      && (PSNIP_CLOCK_WALL_METHOD      == PSNIP_CLOCK_METHOD_MACH_ABSOLUTE_TIME)) || \
+  (defined(PSNIP_CLOCK_MONOTONIC_METHOD) && (PSNIP_CLOCK_MONOTONIC_METHOD == PSNIP_CLOCK_METHOD_MACH_ABSOLUTE_TIME))
+#  include <CoreServices/CoreServices.h>
+#  include <mach/mach.h>
+#  include <mach/mach_time.h>
+#endif
+
+/*** Implementations ***/
+
+#define PSNIP_CLOCK_NSEC_PER_SEC ((psnip_uint32_t) (1000000000ULL))
+
+#if \
+  (defined(PSNIP_CLOCK_CPU_METHOD)       && (PSNIP_CLOCK_CPU_METHOD       == PSNIP_CLOCK_METHOD_CLOCK_GETTIME)) || \
+  (defined(PSNIP_CLOCK_WALL_METHOD)      && (PSNIP_CLOCK_WALL_METHOD      == PSNIP_CLOCK_METHOD_CLOCK_GETTIME)) || \
+  (defined(PSNIP_CLOCK_MONOTONIC_METHOD) && (PSNIP_CLOCK_MONOTONIC_METHOD == PSNIP_CLOCK_METHOD_CLOCK_GETTIME))
+PSNIP_CLOCK__FUNCTION psnip_uint32_t
+psnip_clock__clock_getres (clockid_t clk_id) {
+  struct timespec res;
+  int r;
+
+  r = clock_getres(clk_id, &res);
+  if (r != 0)
+    return 0;
+
+  return (psnip_uint32_t) (PSNIP_CLOCK_NSEC_PER_SEC / res.tv_nsec);
+}
+
+PSNIP_CLOCK__FUNCTION int
+psnip_clock__clock_gettime (clockid_t clk_id, struct PsnipClockTimespec* res) {
+  struct timespec ts;
+
+  if (clock_gettime(clk_id, &ts) != 0)
+    return -10;
+
+  res->seconds = (psnip_uint64_t) (ts.tv_sec);
+  res->nanoseconds = (psnip_uint64_t) (ts.tv_nsec);
+
+  return 0;
+}
+#endif
+
+PSNIP_CLOCK__FUNCTION psnip_uint32_t
+psnip_clock_wall_get_precision (void) {
+#if !defined(PSNIP_CLOCK_WALL_METHOD)
+  return 0;
+#elif defined(PSNIP_CLOCK_WALL_METHOD) && PSNIP_CLOCK_WALL_METHOD == PSNIP_CLOCK_METHOD_CLOCK_GETTIME
+  return psnip_clock__clock_getres(PSNIP_CLOCK_CLOCK_GETTIME_WALL);
+#elif defined(PSNIP_CLOCK_WALL_METHOD) && PSNIP_CLOCK_WALL_METHOD == PSNIP_CLOCK_METHOD_GETTIMEOFDAY
+  return 1000000;
+#elif defined(PSNIP_CLOCK_WALL_METHOD) && PSNIP_CLOCK_WALL_METHOD == PSNIP_CLOCK_METHOD_TIME
+  return 1;
 #else
-#  define MUNIT_CPU_TIME_METHOD  MUNIT_CPU_TIME_METHOD_GETRUSAGE
-#  define MUNIT_WALL_TIME_METHOD MUNIT_WALL_TIME_METHOD_GETTIMEOFDAY
-#endif
-
-#if MUNIT_CPU_TIME_METHOD == MUNIT_CPU_TIME_METHOD_CLOCK_GETTIME
-#include <time.h>
-typedef struct timespec MunitCpuClock;
-#elif MUNIT_CPU_TIME_METHOD == MUNIT_CPU_TIME_METHOD_CLOCK
-#include <time.h>
-typedef clock_t MunitCpuClock;
-#elif MUNIT_CPU_TIME_METHOD == MUNIT_CPU_TIME_METHOD_GETPROCESSTIMES
-#include <windows.h>
-typedef FILETIME MunitCpuClock;
-#elif MUNIT_CPU_TIME_METHOD == MUNIT_CPU_TIME_METHOD_GETRUSAGE
-#include <sys/time.h>
-#include <sys/resource.h>
-typedef struct rusage MunitCpuClock;
-#endif
-
-#if MUNIT_WALL_TIME_METHOD == MUNIT_WALL_TIME_METHOD_CLOCK_GETTIME
-#include <time.h>
-typedef struct timespec MunitWallClock;
-#elif MUNIT_WALL_TIME_METHOD == MUNIT_WALL_TIME_METHOD_GETTIMEOFDAY
-typedef struct timeval MunitWallClock;
-#elif MUNIT_WALL_TIME_METHOD == MUNIT_WALL_TIME_METHOD_QUERYPERFORMANCECOUNTER
-typedef LARGE_INTEGER MunitWallClock;
-#elif MUNIT_WALL_TIME_METHOD == MUNIT_WALL_TIME_METHOD_MACH_ABSOLUTE_TIME
-#include <mach/mach.h>
-#include <mach/mach_time.h>
-typedef munit_uint64_t MunitWallClock;
-#endif
-
-static void
-munit_wall_clock_get_time(MunitWallClock* wallclock) {
-#if MUNIT_WALL_TIME_METHOD == MUNIT_WALL_TIME_METHOD_CLOCK_GETTIME
-  if (clock_gettime(CLOCK_MONOTONIC, wallclock) != 0) {
-    fputs("Unable to get wall clock time\n", stderr);
-    exit(EXIT_FAILURE);
-  }
-#elif MUNIT_WALL_TIME_METHOD == MUNIT_WALL_TIME_METHOD_QUERYPERFORMANCECOUNTER
-  if (QueryPerformanceCounter(wallclock) == 0) {
-    fputs("Unable to get wall clock time\n", stderr);
-    exit(EXIT_FAILURE);
-  }
-#elif MUNIT_WALL_TIME_METHOD == MUNIT_WALL_TIME_METHOD_GETTIMEOFDAY
-  if (gettimeofday(wallclock, NULL) != 0) {
-    fputs("Unable to get wall clock time\n", stderr);
-    exit(EXIT_FAILURE);
-  }
-#elif MUNIT_WALL_TIME_METHOD == MUNIT_WALL_TIME_METHOD_MACH_ABSOLUTE_TIME
-  *wallclock = mach_absolute_time();
+  return 0;
 #endif
 }
 
-#if defined(MUNIT_ENABLE_TIMING)
+PSNIP_CLOCK__FUNCTION int
+psnip_clock_wall_get_time (struct PsnipClockTimespec* res) {
+  (void) res;
 
-static void
-munit_cpu_clock_get_time(MunitCpuClock* cpuclock) {
-#if MUNIT_CPU_TIME_METHOD == MUNIT_CPU_TIME_METHOD_CLOCK_GETTIME
-  static const clockid_t clock_id =
-#if defined(_POSIX_CPUTIME) || defined(CLOCK_PROCESS_CPUTIME_ID)
-    CLOCK_PROCESS_CPUTIME_ID
-#elif defined(CLOCK_VIRTUAL)
-    CLOCK_VIRTUAL
+#if !defined(PSNIP_CLOCK_WALL_METHOD)
+  return -2;
+#elif defined(PSNIP_CLOCK_WALL_METHOD) && PSNIP_CLOCK_WALL_METHOD == PSNIP_CLOCK_METHOD_CLOCK_GETTIME
+  return psnip_clock__clock_gettime(PSNIP_CLOCK_CLOCK_GETTIME_WALL, res);
+#elif defined(PSNIP_CLOCK_WALL_METHOD) && PSNIP_CLOCK_WALL_METHOD == PSNIP_CLOCK_METHOD_TIME
+  res->seconds = time(NULL);
+  res->nanoseconds = 0;
+#elif defined(PSNIP_CLOCK_WALL_METHOD) && PSNIP_CLOCK_WALL_METHOD == PSNIP_CLOCK_METHOD_GETTIMEOFDAY
+  struct timeval tv;
+
+  if (gettimeofday(&tv, NULL) != 0)
+    return -6;
+
+  res->seconds = tv.tv_sec;
+  res->nanoseconds = tv.tv_usec * 1000;
 #else
-#error No clock found
+  return -2;
 #endif
-    ;
 
-  if (clock_gettime(clock_id, cpuclock) != 0) {
-    fprintf(stderr, "Unable to get CPU clock time: %s\n", strerror(errno));
-    exit(EXIT_FAILURE);
-  }
-#elif MUNIT_CPU_TIME_METHOD == MUNIT_CPU_TIME_METHOD_GETPROCESSTIMES
-  FILETIME CreationTime, ExitTime, KernelTime;
-  if (!GetProcessTimes(GetCurrentProcess(), &CreationTime, &ExitTime, &KernelTime, cpuclock)) {
-    fputs("Unable to get CPU clock time\n", stderr);
-    exit(EXIT_FAILURE);
-  }
-#elif MUNIT_CPU_TIME_METHOD == MUNIT_CPU_TIME_METHOD_CLOCK
-  *cpuclock = clock();
-#elif MUNIT_CPU_TIME_METHOD == MUNIT_CPU_TIME_METHOD_GETRUSAGE
-  if (getrusage(RUSAGE_SELF, cpuclock) != 0) {
-    fputs("Unable to get CPU clock time\n", stderr);
-    exit(EXIT_FAILURE);
-  }
+  return 0;
+}
+
+PSNIP_CLOCK__FUNCTION psnip_uint32_t
+psnip_clock_cpu_get_precision (void) {
+#if !defined(PSNIP_CLOCK_CPU_METHOD)
+  return 0;
+#elif defined(PSNIP_CLOCK_CPU_METHOD) && PSNIP_CLOCK_CPU_METHOD == PSNIP_CLOCK_METHOD_CLOCK_GETTIME
+  return psnip_clock__clock_getres(PSNIP_CLOCK_CLOCK_GETTIME_CPU);
+#elif defined(PSNIP_CLOCK_CPU_METHOD) && PSNIP_CLOCK_CPU_METHOD == PSNIP_CLOCK_METHOD_CLOCK
+  return CLOCKS_PER_SEC;
+#elif defined(PSNIP_CLOCK_CPU_METHOD) && PSNIP_CLOCK_CPU_METHOD == PSNIP_CLOCK_METHOD_GETPROCESSTIMES
+  return PSNIP_CLOCK_NSEC_PER_SEC / 100;
+#else
+  return 0;
 #endif
 }
 
-static double
-munit_wall_clock_get_elapsed(MunitWallClock* start, MunitWallClock* end) {
-#if MUNIT_WALL_TIME_METHOD == MUNIT_WALL_TIME_METHOD_CLOCK_GETTIME
-  return
-    (double) (end->tv_sec - start->tv_sec) +
-    (((double) (end->tv_nsec - start->tv_nsec)) / 1000000000);
-#elif MUNIT_WALL_TIME_METHOD == MUNIT_WALL_TIME_METHOD_QUERYPERFORMANCECOUNTER
+PSNIP_CLOCK__FUNCTION int
+psnip_clock_cpu_get_time (struct PsnipClockTimespec* res) {
+#if !defined(PSNIP_CLOCK_CPU_METHOD)
+  (void) res;
+  return -2;
+#elif defined(PSNIP_CLOCK_CPU_METHOD) && PSNIP_CLOCK_CPU_METHOD == PSNIP_CLOCK_METHOD_CLOCK_GETTIME
+  return psnip_clock__clock_gettime(PSNIP_CLOCK_CLOCK_GETTIME_CPU, res);
+#elif defined(PSNIP_CLOCK_CPU_METHOD) && PSNIP_CLOCK_CPU_METHOD == PSNIP_CLOCK_METHOD_CLOCK
+  clock_t t = clock();
+  if (t == ((clock_t) -1))
+    return -5;
+  res->seconds = t / CLOCKS_PER_SEC;
+  res->nanoseconds = (t % CLOCKS_PER_SEC) * (PSNIP_CLOCK_NSEC_PER_SEC / CLOCKS_PER_SEC);
+#elif defined(PSNIP_CLOCK_CPU_METHOD) && PSNIP_CLOCK_CPU_METHOD == PSNIP_CLOCK_METHOD_GETPROCESSTIMES
+  FILETIME CreationTime, ExitTime, KernelTime, UserTime;
+  LARGE_INTEGER date, adjust;
+
+  if (!GetProcessTimes(GetCurrentProcess(), &CreationTime, &ExitTime, &KernelTime, &UserTime))
+    return -7;
+
+  /* http://www.frenk.com/2009/12/convert-filetime-to-unix-timestamp/ */
+  date.HighPart = UserTime.dwHighDateTime;
+  date.LowPart = UserTime.dwLowDateTime;
+  adjust.QuadPart = 11644473600000 * 10000;
+  date.QuadPart -= adjust.QuadPart;
+
+  res->seconds = date.QuadPart / 10000000;
+  res->nanoseconds = (date.QuadPart % 10000000) * (PSNIP_CLOCK_NSEC_PER_SEC / 100);
+#elif PSNIP_CLOCK_CPU_METHOD == PSNIP_CLOCK_METHOD_GETRUSAGE
+  struct rusage usage;
+  if (getrusage(RUSAGE_SELF, &usage) != 0)
+    return -8;
+
+  res->seconds = usage.ru_utime.tv_sec;
+  res->nanoseconds = tv.tv_usec * 1000;
+#else
+  (void) res;
+  return -2;
+#endif
+
+  return 0;
+}
+
+PSNIP_CLOCK__FUNCTION psnip_uint32_t
+psnip_clock_monotonic_get_precision (void) {
+#if !defined(PSNIP_CLOCK_MONOTONIC_METHOD)
+  return 0;
+#elif defined(PSNIP_CLOCK_MONOTONIC_METHOD) && PSNIP_CLOCK_MONOTONIC_METHOD == PSNIP_CLOCK_METHOD_CLOCK_GETTIME
+  return psnip_clock__clock_getres(PSNIP_CLOCK_CLOCK_GETTIME_MONOTONIC);
+#elif defined(PSNIP_CLOCK_MONOTONIC_METHOD) && PSNIP_CLOCK_MONOTONIC_METHOD == PSNIP_CLOCK_METHOD_MACH_ABSOLUTE_TIME
+  static mach_timebase_info_data_t tbi = { 0, };
+  if (tbi.denom == 0)
+    mach_timebase_info(&tbi);
+  return (psnip_uint32_t) (tbi.numer / tbi.denom);
+#elif defined(PSNIP_CLOCK_MONOTONIC_METHOD) && PSNIP_CLOCK_MONOTONIC_METHOD == PSNIP_CLOCK_METHOD_GETTICKCOUNT64
+  return 1000;
+#elif defined(PSNIP_CLOCK_MONOTONIC_METHOD) && PSNIP_CLOCK_MONOTONIC_METHOD == PSNIP_CLOCK_METHOD_QUERYPERFORMANCECOUNTER
   LARGE_INTEGER Frequency;
-  LONGLONG elapsed_ticks;
   QueryPerformanceFrequency(&Frequency);
-  elapsed_ticks = end->QuadPart - start->QuadPart;
-  return ((double) elapsed_ticks) / ((double) Frequency.QuadPart);
-#elif MUNIT_WALL_TIME_METHOD == MUNIT_WALL_TIME_METHOD_GETTIMEOFDAY
-  return
-    (double) (end->tv_sec - start->tv_sec) +
-    (((double) (end->tv_usec - start->tv_usec)) / 1000000);
-#elif MUNIT_WALL_TIME_METHOD == MUNIT_WALL_TIME_METHOD_MACH_ABSOLUTE_TIME
-  static mach_timebase_info_data_t timebase_info = { 0, 0 };
-  if (timebase_info.denom == 0)
-    (void) mach_timebase_info(&timebase_info);
-
-  return ((*end - *start) * timebase_info.numer / timebase_info.denom) / 1000000000.0;
+  return (psnip_uint32_t) ((Frequency.QuadPart > PSNIP_CLOCK_NSEC_PER_SEC) ? PSNIP_CLOCK_NSEC_PER_SEC : Frequency.QuadPart);
+#else
+  return 0;
 #endif
 }
 
-static double
-munit_cpu_clock_get_elapsed(MunitCpuClock* start, MunitCpuClock* end) {
-#if MUNIT_CPU_TIME_METHOD == MUNIT_CPU_TIME_METHOD_CLOCK_GETTIME
-  return
-    (double) (end->tv_sec - start->tv_sec) +
-    (((double) (end->tv_nsec - start->tv_nsec)) / 1000000000);
-#elif MUNIT_CPU_TIME_METHOD == MUNIT_CPU_TIME_METHOD_GETPROCESSTIMES
-  ULONGLONG start_cpu, end_cpu;
+PSNIP_CLOCK__FUNCTION int
+psnip_clock_monotonic_get_time (struct PsnipClockTimespec* res) {
+#if !defined(PSNIP_CLOCK_MONOTONIC_METHOD)
+  (void) res;
+  return -2;
+#elif defined(PSNIP_CLOCK_MONOTONIC_METHOD) && PSNIP_CLOCK_MONOTONIC_METHOD == PSNIP_CLOCK_METHOD_CLOCK_GETTIME
+  return psnip_clock__clock_gettime(PSNIP_CLOCK_CLOCK_GETTIME_MONOTONIC, res);
+#elif defined(PSNIP_CLOCK_MONOTONIC_METHOD) && PSNIP_CLOCK_MONOTONIC_METHOD == PSNIP_CLOCK_METHOD_MACH_ABSOLUTE_TIME
+  psnip_uint64_t nsec = mach_absolute_time();
+  static mach_timebase_info_data_t tbi = { 0, };
+  if (tbi.denom == 0)
+    mach_timebase_info(&tbi);
+  nsec *= ((psnip_uint64_t) tbi.numer) / ((psnip_uint64_t) tbi.denom);
+  res->seconds = nsec / PSNIP_CLOCK_NSEC_PER_SEC;
+  res->nanoseconds = nsec % PSNIP_CLOCK_NSEC_PER_SEC;
+#elif defined(PSNIP_CLOCK_MONOTONIC_METHOD) && PSNIP_CLOCK_MONOTONIC_METHOD == PSNIP_CLOCK_METHOD_QUERYPERFORMANCECOUNTER
+  LARGE_INTEGER t, f;
+  if (QueryPerformanceCounter(&t) == 0)
+    return -12;
 
-  start_cpu   = start->dwHighDateTime;
-  start_cpu <<= sizeof(DWORD) * 8;
-  start_cpu  |= start->dwLowDateTime;
-
-  end_cpu   = end->dwHighDateTime;
-  end_cpu <<= sizeof(DWORD) * 8;
-  end_cpu  |= end->dwLowDateTime;
-
-  return ((double) (end_cpu - start_cpu)) / 10000000;
-#elif MUNIT_CPU_TIME_METHOD == MUNIT_CPU_TIME_METHOD_CLOCK
-  return ((double) (*end - *start)) / CLOCKS_PER_SEC;
-#elif MUNIT_CPU_TIME_METHOD == MUNIT_CPU_TIME_METHOD_GETRUSAGE
-  return
-    (double) ((end->ru_utime.tv_sec + end->ru_stime.tv_sec) - (start->ru_utime.tv_sec + start->ru_stime.tv_sec)) +
-    (((double) ((end->ru_utime.tv_usec + end->ru_stime.tv_usec) - (start->ru_utime.tv_usec + start->ru_stime.tv_usec))) / 1000000);
+  QueryPerformanceFrequency(&f);
+  res->seconds = t.QuadPart / f.QuadPart;
+  res->nanoseconds = t.QuadPart % f.QuadPart;
+  if (f.QuadPart > PSNIP_CLOCK_NSEC_PER_SEC)
+    res->nanoseconds /= f.QuadPart / PSNIP_CLOCK_NSEC_PER_SEC;
+  else
+    res->nanoseconds *= PSNIP_CLOCK_NSEC_PER_SEC / f.QuadPart;
+#elif defined(PSNIP_CLOCK_MONOTONIC_METHOD) && PSNIP_CLOCK_MONOTONIC_METHOD == PSNIP_CLOCK_METHOD_GETTICKCOUNT64
+  const ULONGLONG msec = GetTickCount64();
+  res->seconds = msec / 1000;
+  res->nanoseconds = sec % 1000;
+#else
+  return -2;
 #endif
+
+  return 0;
 }
 
-#endif /* MUNIT_ENABLE_TIMING */
+/* Returns the number of ticks per second for the specified clock.
+ * For example, a clock with millisecond precision would return 1000,
+ * and a clock with 1 second (such as the time() function) would
+ * return 1.
+ *
+ * If the requested clock isn't available, it will return 0.
+ * Hopefully this will be rare, but if it happens to you please let us
+ * know so we can work on finding a way to support your system.
+ *
+ * Note that different clocks on the same system often have a
+ * different precisions.
+ */
+PSNIP_CLOCK__FUNCTION psnip_uint32_t
+psnip_clock_get_precision (enum PsnipClockType clock_type) {
+  switch (clock_type) {
+    case PSNIP_CLOCK_TYPE_MONOTONIC:
+      return psnip_clock_monotonic_get_precision ();
+    case PSNIP_CLOCK_TYPE_CPU:
+      return psnip_clock_cpu_get_precision ();
+    case PSNIP_CLOCK_TYPE_WALL:
+      return psnip_clock_wall_get_precision ();
+  }
+
+  PSNIP_CLOCK_UNREACHABLE();
+  return 0;
+}
+
+/* Set the provided timespec to the requested time.  Returns 0 on
+ * success, or a negative value on failure. */
+PSNIP_CLOCK__FUNCTION int
+psnip_clock_get_time (enum PsnipClockType clock_type, struct PsnipClockTimespec* res) {
+  assert(res != NULL);
+
+  switch (clock_type) {
+    case PSNIP_CLOCK_TYPE_MONOTONIC:
+      return psnip_clock_monotonic_get_time (res);
+    case PSNIP_CLOCK_TYPE_CPU:
+      return psnip_clock_cpu_get_time (res);
+    case PSNIP_CLOCK_TYPE_WALL:
+      return psnip_clock_wall_get_time (res);
+  }
+
+  return -1;
+}
+
+#endif /* !defined(PSNIP_CLOCK_H) */
+
+static psnip_uint64_t
+munit_clock_get_elapsed(struct PsnipClockTimespec* start, struct PsnipClockTimespec* end) {
+  psnip_uint64_t r = (end->seconds - start->seconds) * PSNIP_CLOCK_NSEC_PER_SEC;
+  if (end->nanoseconds < start->nanoseconds) {
+    r -= (start->nanoseconds - end->nanoseconds);
+  } else {
+    r += (end->nanoseconds - start->nanoseconds);
+  }
+  return r;
+}
+
+#endif /* defined(MUNIT_ENABLE_TIMING) */
 
 /*** PRNG stuff ***/
 
@@ -603,19 +892,11 @@ munit_rand_seed(munit_uint32_t seed) {
 
 static munit_uint32_t
 munit_rand_generate_seed(void) {
-  MunitWallClock wc;
+  struct PsnipClockTimespec wc;
   munit_uint32_t seed, state;
 
-  munit_wall_clock_get_time(&wc);
-#if MUNIT_WALL_TIME_METHOD == MUNIT_WALL_TIME_METHOD_CLOCK_GETTIME
-  seed = (munit_uint32_t) wc.tv_nsec;
-#elif MUNIT_WALL_TIME_METHOD == MUNIT_WALL_TIME_METHOD_QUERYPERFORMANCECOUNTER
-  seed = (munit_uint32_t) wc.QuadPart;
-#elif MUNIT_WALL_TIME_METHOD == MUNIT_WALL_TIME_METHOD_GETTIMEOFDAY
-  seed = (munit_uint32_t) wc.tv_usec;
-#elif MUNIT_WALL_TIME_METHOD == MUNIT_WALL_TIME_METHOD_MACH_ABSOLUTE_TIME
-  seed = (munit_uint32_t) wc;
-#endif
+  psnip_clock_get_time(PSNIP_CLOCK_TYPE_WALL, &wc);
+  seed = (munit_uint32_t) wc.nanoseconds;
 
   state = munit_rand_next_state(seed + MUNIT_PRNG_INCREMENT);
   return munit_rand_from_state(state);
@@ -703,14 +984,10 @@ munit_rand_at_most(munit_uint32_t salt, munit_uint32_t max) {
 
 int
 munit_rand_int_range(int min, int max) {
-  munit_uint64_t range;
+  munit_uint64_t range = (munit_uint64_t) max - (munit_uint64_t) min;
 
-  if (min == max)
-    return min;
-  else if (min > max)
+  if (min > max)
     return munit_rand_int_range(max, min);
-
-  range = (munit_uint64_t) max - (munit_uint64_t) min;
 
   if (range > (~((munit_uint32_t) 0U)))
     range = (~((munit_uint32_t) 0U));
@@ -743,8 +1020,8 @@ typedef struct {
   unsigned int failed;
   unsigned int errored;
 #if defined(MUNIT_ENABLE_TIMING)
-  double cpu_clock;
-  double wall_clock;
+  munit_uint64_t cpu_clock;
+  munit_uint64_t wall_clock;
 #endif
 } MunitReport;
 
@@ -775,8 +1052,8 @@ munit_parameters_get(const MunitParameter params[], const char* key) {
 }
 
 static void
-munit_print_time(FILE* fp, double seconds) {
-  fprintf(fp, "%" MUNIT_TEST_TIME_FORMAT, seconds);
+munit_print_time(FILE* fp, munit_uint64_t nanoseconds) {
+  fprintf(fp, "%" MUNIT_TEST_TIME_FORMAT, ((double) nanoseconds) / ((double) PSNIP_CLOCK_NSEC_PER_SEC));
 }
 
 /* Add a paramter to an array of parameters. */
@@ -879,8 +1156,8 @@ munit_test_runner_exec(MunitTestRunner* runner, const MunitTest* test, const Mun
   unsigned int iterations = runner->iterations;
   MunitResult result = MUNIT_FAIL;
 #if defined(MUNIT_ENABLE_TIMING)
-  MunitWallClock wall_clock_begin, wall_clock_end;
-  MunitCpuClock cpu_clock_begin, cpu_clock_end;
+  struct PsnipClockTimespec wall_clock_begin, wall_clock_end;
+  struct PsnipClockTimespec cpu_clock_begin, cpu_clock_end;
 #endif
   unsigned int i = 0;
 
@@ -895,15 +1172,15 @@ munit_test_runner_exec(MunitTestRunner* runner, const MunitTest* test, const Mun
     void* data = (test->setup == NULL) ? runner->user_data : test->setup(params, runner->user_data);
 
 #if defined(MUNIT_ENABLE_TIMING)
-    munit_wall_clock_get_time(&wall_clock_begin);
-    munit_cpu_clock_get_time(&cpu_clock_begin);
+    psnip_clock_get_time(PSNIP_CLOCK_TYPE_WALL, &wall_clock_begin);
+    psnip_clock_get_time(PSNIP_CLOCK_TYPE_CPU, &cpu_clock_begin);
 #endif
 
     result = test->test(params, data);
 
 #if defined(MUNIT_ENABLE_TIMING)
-    munit_wall_clock_get_time(&wall_clock_end);
-    munit_cpu_clock_get_time(&cpu_clock_end);
+    psnip_clock_get_time(PSNIP_CLOCK_TYPE_WALL, &wall_clock_end);
+    psnip_clock_get_time(PSNIP_CLOCK_TYPE_CPU, &cpu_clock_end);
 #endif
 
     if (test->tear_down != NULL)
@@ -912,8 +1189,8 @@ munit_test_runner_exec(MunitTestRunner* runner, const MunitTest* test, const Mun
     if (MUNIT_LIKELY(result == MUNIT_OK)) {
       report->successful++;
 #if defined(MUNIT_ENABLE_TIMING)
-      report->wall_clock += munit_wall_clock_get_elapsed(&wall_clock_begin, &wall_clock_end);
-      report->cpu_clock += munit_cpu_clock_get_elapsed(&cpu_clock_begin, &cpu_clock_end);
+      report->wall_clock += munit_clock_get_elapsed(&wall_clock_begin, &wall_clock_end);
+      report->cpu_clock += munit_clock_get_elapsed(&cpu_clock_begin, &cpu_clock_end);
 #endif
     } else {
       switch ((int) result) {
@@ -991,7 +1268,7 @@ munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest*
   MunitReport report = {
     0, 0, 0, 0,
 #if defined(MUNIT_ENABLE_TIMING)
-    0.0, 0.0
+    0, 0
 #endif
   };
   unsigned int output_l;
@@ -1178,9 +1455,9 @@ munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest*
     munit_test_runner_print_color(runner, MUNIT_RESULT_STRING_OK, '2');
 #if defined(MUNIT_ENABLE_TIMING)
     fputs(" ] [ ", MUNIT_OUTPUT_FILE);
-    munit_print_time(MUNIT_OUTPUT_FILE, report.wall_clock / ((double) report.successful));
+    munit_print_time(MUNIT_OUTPUT_FILE, report.wall_clock / report.successful);
     fputs(" / ", MUNIT_OUTPUT_FILE);
-    munit_print_time(MUNIT_OUTPUT_FILE, report.cpu_clock / ((double) report.successful));
+    munit_print_time(MUNIT_OUTPUT_FILE, report.cpu_clock / report.successful);
     fprintf(MUNIT_OUTPUT_FILE, " CPU ]\n  %-" MUNIT_XSTRINGIFY(MUNIT_TEST_NAME_LEN) "s Total: [ ", "");
     munit_print_time(MUNIT_OUTPUT_FILE, report.wall_clock);
     fputs(" / ", MUNIT_OUTPUT_FILE);
@@ -1566,8 +1843,8 @@ munit_suite_main_custom(const MunitSuite* suite, void* user_data,
   runner.report.failed = 0;
   runner.report.errored = 0;
 #if defined(MUNIT_ENABLE_TIMING)
-  runner.report.cpu_clock = 0.0;
-  runner.report.wall_clock = 0.0;
+  runner.report.cpu_clock = 0;
+  runner.report.wall_clock = 0;
 #endif
 
   runner.colorize = false;

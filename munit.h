@@ -31,7 +31,7 @@
 #define MUNIT_VERSION(major, minor, revision) \
   (((major) << 16) | ((minor) << 8) | (revision))
 
-#define MUNIT_CURRENT_VERSION MUNIT_VERSION(0, 4, 0)
+#define MUNIT_CURRENT_VERSION MUNIT_VERSION(0, 4, 1)
 
 #if defined(_MSC_VER) && (_MSC_VER < 1600)
 #  define munit_int8_t   __int8
@@ -460,7 +460,7 @@ struct MunitSuite_ {
 
 int munit_suite_main(const MunitSuite* suite, void* user_data, int argc, char* const argv[MUNIT_ARRAY_PARAM(argc + 1)]);
 
-/* Note: I'm very happy with this API; it's likely to change if I
+/* Note: I'm not very happy with this API; it's likely to change if I
  * figure out something better.  Suggestions welcome. */
 
 typedef struct MunitArgument_ MunitArgument;
