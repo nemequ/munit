@@ -135,6 +135,14 @@
 #pragma warning(disable: 4127)
 #endif
 
+#if defined(_WIN32) || defined(__EMSCRIPTEN__)
+#  define MUNIT_NO_FORK
+#endif
+
+#if defined(__EMSCRIPTEN__)
+#  define MUNIT_NO_BUFFER
+#endif
+
 /*** Logging ***/
 
 static MunitLogLevel munit_log_level_visible = MUNIT_LOG_INFO;
@@ -767,7 +775,7 @@ munit_clock_get_elapsed(struct PsnipClockTimespec* start, struct PsnipClockTimes
  * important that it be reproducible, so bug reports have a better
  * chance of being reproducible. */
 
-#if defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 201112L) && !defined(__STDC_NO_ATOMICS__)
+#if defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 201112L) && !defined(__STDC_NO_ATOMICS__) && !defined(__EMSCRIPTEN__)
 #  define HAVE_STDATOMIC
 #elif defined(__clang__)
 #  if __has_extension(c_atomic)
@@ -1235,6 +1243,7 @@ munit_test_runner_print_color(const MunitTestRunner* runner, const char* string,
     fputs(string, MUNIT_OUTPUT_FILE);
 }
 
+#if !defined(MUNIT_NO_BUFFER)
 static int
 munit_replace_stderr(FILE* stderr_buf) {
   if (stderr_buf != NULL) {
@@ -1260,6 +1269,7 @@ munit_restore_stderr(int orig_stderr) {
     close(orig_stderr);
   }
 }
+#endif /* !defined(MUNIT_NO_BUFFER) */
 
 /* Run a test with the specified parameters. */
 static void
@@ -1275,7 +1285,7 @@ munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest*
   bool first;
   const MunitParameter* param;
   FILE* stderr_buf;
-#if !defined(_WIN32)
+#if !defined(MUNIT_NO_FORK)
   int pipefd[2];
   pid_t fork_pid;
   int orig_stderr;
@@ -1320,7 +1330,7 @@ munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest*
     goto print_result;
   }
 
-#if !defined(_WIN32)
+#if !defined(MUNIT_NO_FORK)
   if (runner->fork) {
     pipefd[0] = -1;
     pipefd[1] = -1;
@@ -1404,7 +1414,9 @@ munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest*
   } else
 #endif
   {
+#if !defined(MUNIT_NO_BUFFER)
     const volatile int orig_stderr = munit_replace_stderr(stderr_buf);
+#endif
 
 #if defined(MUNIT_THREAD_LOCAL)
     if (MUNIT_UNLIKELY(setjmp(munit_error_jmp_buf) != 0)) {
@@ -1418,7 +1430,9 @@ munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest*
     result = munit_test_runner_exec(runner, test, params, &report);
 #endif
 
+#if !defined(MUNIT_NO_BUFFER)
     munit_restore_stderr(orig_stderr);
+#endif
 
     /* Here just so that the label is used on Windows and we don't get
      * a warning */
@@ -1699,7 +1713,7 @@ munit_print_help(int argc, char* const argv[MUNIT_ARRAY_PARAM(argc + 1)], void* 
        " --log-fatal debug|info|warning|error\n"
        "           Set the level at which messages of different severities are visible,\n"
        "           or cause the test to terminate.\n"
-#if !defined(_WIN32)
+#if !defined(MUNIT_NO_FORK)
        " --no-fork Do not execute tests in a child process.  If this option is supplied\n"
        "           and a test crashes (including by failing an assertion), no further\n"
        "           tests will be performed.\n"
