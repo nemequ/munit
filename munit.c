@@ -1654,6 +1654,8 @@ munit_test_runner_run_suite(MunitTestRunner* runner,
   const char** test_name;
   const MunitSuite* child_suite;
 
+  runner->suite = suite;
+
   /* Run the tests. */
   for (test = suite->tests ; test != NULL && test->test != NULL ; test++) {
     if (runner->tests != NULL) { /* Specific tests were requested on the CLI */
