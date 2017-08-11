@@ -900,7 +900,7 @@ munit_rand_seed(munit_uint32_t seed) {
 
 static munit_uint32_t
 munit_rand_generate_seed(void) {
-  struct PsnipClockTimespec wc;
+  struct PsnipClockTimespec wc = { 0, };
   munit_uint32_t seed, state;
 
   psnip_clock_get_time(PSNIP_CLOCK_TYPE_WALL, &wc);
@@ -1164,8 +1164,8 @@ munit_test_runner_exec(MunitTestRunner* runner, const MunitTest* test, const Mun
   unsigned int iterations = runner->iterations;
   MunitResult result = MUNIT_FAIL;
 #if defined(MUNIT_ENABLE_TIMING)
-  struct PsnipClockTimespec wall_clock_begin, wall_clock_end;
-  struct PsnipClockTimespec cpu_clock_begin, cpu_clock_end;
+  struct PsnipClockTimespec wall_clock_begin = { 0, }, wall_clock_end = { 0, };
+  struct PsnipClockTimespec cpu_clock_begin = { 0, }, cpu_clock_end = { 0, };
 #endif
   unsigned int i = 0;
 
