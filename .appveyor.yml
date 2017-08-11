@@ -16,6 +16,10 @@ environment:
     MSVC_VER: 10
   - ARCHITECTURE: x86
     MSVC_VER: 9
+  - COMPILER: mingw
+    CFLAGS: -Wall -Wextra
+  - COMPILER: mingw
+    CFLAGS: -std=c99 -pedantic-errors -Wall -Wextra
 
 branches:
   except:
@@ -24,11 +28,12 @@ branches:
 
 configuration: Debug
 
-install:
-
 before_build:
-  - call "C:\Program Files (x86)\Microsoft Visual Studio %MSVC_VER%.0\VC\vcvarsall.bat" %ARCHITECTURE%
+  - cmd: IF "%COMPILER%"=="" call "C:\Program Files (x86)\Microsoft Visual Studio %MSVC_VER%.0\VC\vcvarsall.bat" %ARCHITECTURE%
+  - cmd: IF "%COMPILER%"=="mingw" set PATH=C:\MinGW\bin;%PATH%
 
-build_script: cl.exe /W4 /WX /Feexample munit.c example.c
+build_script:
+  - cmd: IF "%COMPILER%"=="" cl.exe /W4 /WX /Feexample munit.c example.c
+  - cmd: IF "%COMPILER%"=="mingw" gcc.exe %CFLAGS% -o example.exe munit.c example.c
 
 test_script: example.exe --color always
