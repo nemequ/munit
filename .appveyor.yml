@@ -17,9 +17,9 @@ environment:
   - ARCHITECTURE: x86
     MSVC_VER: 9
   - COMPILER: mingw
-    CFLAGS: -Wall -Wextra
+    CFLAGS: -Wall -Wextra -Werror
   - COMPILER: mingw
-    CFLAGS: -std=c99 -pedantic-errors -Wall -Wextra
+    CFLAGS: -DMUNIT_STRICT_ANSI -std=c99 -pedantic-errors -Wall -Wextra -Werror
 
 branches:
   except:

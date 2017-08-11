@@ -115,6 +115,16 @@
 #  endif
 #endif
 
+#if defined(__STRICT_ANSI__) && (defined(__MINGW32__) || defined(__MINGW64__))
+#  if !defined(MUNIT_STRICT_ANSI)
+#    warning Strict ANSI mode on MinGW disables the POSIX and Windows APIs, which significantly limits munit. You should probably use -std=gnuXX instead of -std=cXX on MinGW, or you can use -DMUNIT_STRICT_ANSI to have munit quietly work in a degraded mode.
+#    define MUNIT_STRICT_ANSI
+#  endif
+#  if !defined(MUNIT_NO_BUFFER)
+#    define MUNIT_NO_BUFFER
+#  endif
+#endif
+
 #include "munit.h"
 
 #define MUNIT_STRINGIFY(x) #x
@@ -1288,7 +1298,9 @@ munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest*
 #if !defined(MUNIT_NO_FORK)
   int pipefd[2];
   pid_t fork_pid;
+#if !defined(MUNIT_NO_BUFFER)
   int orig_stderr;
+#endif
   ssize_t bytes_written = 0;
   ssize_t write_res;
   ssize_t bytes_read = 0;
@@ -1344,13 +1356,17 @@ munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest*
     if (fork_pid == 0) {
       close(pipefd[0]);
 
+#if !defined(MUNIT_NO_BUFFER)
       orig_stderr = munit_replace_stderr(stderr_buf);
+#endif
       munit_test_runner_exec(runner, test, params, &report);
 
       /* Note that we don't restore stderr.  This is so we can buffer
        * things written to stderr later on (such as by
        * asan/tsan/ubsan, valgrind, etc.) */
+#if !defined(MUNIT_NO_BUFFER)
       close(orig_stderr);
+#endif
 
       do {
         write_res = write(pipefd[1], ((munit_uint8_t*) (&report)) + bytes_written, sizeof(report) - bytes_written);
@@ -1414,7 +1430,7 @@ munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest*
   } else
 #endif
   {
-#if !defined(MUNIT_NO_BUFFER)
+#if !defined(MUNIT_NO_FORK) && !defined(MUNIT_NO_BUFFER)
     const volatile int orig_stderr = munit_replace_stderr(stderr_buf);
 #endif
 
@@ -1430,7 +1446,7 @@ munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest*
     result = munit_test_runner_exec(runner, test, params, &report);
 #endif
 
-#if !defined(MUNIT_NO_BUFFER)
+#if !defined(MUNIT_NO_FORK) && !defined(MUNIT_NO_BUFFER)
     munit_restore_stderr(orig_stderr);
 #endif
 
@@ -1494,6 +1510,7 @@ munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest*
   }
   fputs(" ]\n", MUNIT_OUTPUT_FILE);
 
+#if !defined(MUNIT_NO_BUFFER)
   if (stderr_buf != NULL) {
     if (result == MUNIT_FAIL || result == MUNIT_ERROR || runner->show_stderr) {
       fflush(MUNIT_OUTPUT_FILE);
@@ -1506,6 +1523,7 @@ munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest*
 
     fclose(stderr_buf);
   }
+#endif /* !defined(MUNIT_NO_BUFFER) */
 }
 
 static void
@@ -1803,21 +1821,18 @@ munit_suite_list_tests(const MunitSuite* suite, bool show_params, const char* pr
 
 static bool
 munit_stream_supports_ansi(FILE *stream) {
-#if !defined(_WIN32)
+#if defined(MUNIT_STRICT_ANSI)
+  return 0;
+#elif !defined(_WIN32)
   return isatty(fileno(stream));
+#elif defined(__MINGW32__) || defined(__MINGW64__)
+  if (isatty(fileno(stream)))
+    return getenv("ANSICON") != NULL;
 #else
-
-#if !defined(__MINGW32__)
   size_t ansicon_size = 0;
-#endif
-
   if (isatty(fileno(stream))) {
-#if !defined(__MINGW32__)
     getenv_s(&ansicon_size, NULL, 0, "ANSICON");
     return ansicon_size != 0;
-#else
-    return getenv("ANSICON") != NULL;
-#endif
   }
   return false;
 #endif
