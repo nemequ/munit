@@ -134,10 +134,18 @@ matrix:
 before_install:
 - if [ -n "${C_COMPILER}" ]; then export CC="${C_COMPILER}"; fi
 - if [ "${C_COMPILER}" = "pgcc" ]; then wget -q -O /dev/stdout 'https://raw.githubusercontent.com/nemequ/pgi-travis/master/install-pgi.sh' | /bin/sh; fi
+- if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then pyenv local 3.6; fi
+- export PATH="$(pwd)/ninja:${PATH}"
+- if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew update && brew install python3 ninja; fi
+- if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then wget https://github.com/ninja-build/ninja/releases/download/v1.7.2/ninja-linux.zip && unzip -q ninja-linux.zip -d ninja; fi
+- pip3 install meson
 
 script:
  - make CC="${CC}" AGGRESSIVE_WARNINGS=y EXTENSION="${EXTENSION}" OPENMP="${OPENMP}" ASAN="${ASAN}" UBSAN="${UBSAN}"
  - make test
+ - meson build
+ - ninja -Cbuild
+ - ninja -Cbuild test
 
 notifications:
   email: false
