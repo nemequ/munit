@@ -31,6 +31,20 @@ Features µnit does not currently include, but some day may include
  * [TAP](http://testanything.org/) support; feel free to discuss in
    [issue #1](https://github.com/nemequ/munit/issues/1)
 
+# Include into your project with meson
+
+In your `subprojects` folder put a `munit.wrap` file containing:
+
+```
+[wrap-git]
+directory=munit
+url=https://github.com/nemequ/munit/
+revision=head
+```
+
+Then you can use a subproject fallback when you include munit as a
+dependency to your project: `dependency('munit', fallback: ['munit', 'munit_dep'])`
+
 ## Documentation
 
 See [the µnit web site](https://nemequ.github.io/munit).
