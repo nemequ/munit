@@ -4,7 +4,8 @@ dist: trusty
 branches:
   except:
     - /^(wip\/)?(appveyor|msvc|mingw|windows)(\-.+)?$/
-    - /^master$/
+    # https://github.com/travis-ci/travis-ci/issues/6632
+    # - /^master$/
 matrix:
   include:
     ###
