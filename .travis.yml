@@ -131,21 +131,19 @@ matrix:
     ###
     - os: osx
 
+    ###
+    ## Meson
+    ###
+    - env: BUILD_SYSTEM=meson
+
 before_install:
 - if [ -n "${C_COMPILER}" ]; then export CC="${C_COMPILER}"; fi
 - if [ "${C_COMPILER}" = "pgcc" ]; then wget -q -O /dev/stdout 'https://raw.githubusercontent.com/nemequ/pgi-travis/master/install-pgi.sh' | /bin/sh; fi
-- if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then pyenv local 3.6; fi
-- export PATH="$(pwd)/ninja:${PATH}"
-- if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew update && brew install python3 ninja; fi
-- if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then wget https://github.com/ninja-build/ninja/releases/download/v1.7.2/ninja-linux.zip && unzip -q ninja-linux.zip -d ninja; fi
-- pip3 install meson
+- if [ "${BUILD_SYSTEM}" = "meson" ]; then wget -O /tmp/ninja-linux.zip $(curl -s https://api.github.com/repos/ninja-build/ninja/releases/latest | grep -oP 'https://github.com/ninja-build/ninja/releases/download/v[0-9\.]+/ninja-linux.zip') && unzip -q /tmp/ninja-linux.zip -d ~/bin && pyenv local 3.6 && pip3 install meson; fi
 
 script:
- - make CC="${CC}" AGGRESSIVE_WARNINGS=y EXTENSION="${EXTENSION}" OPENMP="${OPENMP}" ASAN="${ASAN}" UBSAN="${UBSAN}"
- - make test
- - meson build
- - ninja -Cbuild
- - ninja -Cbuild test
+ - if [ "${BUILD_SYSTEM}" = "meson" ]; then meson build && ninja -Cbuild; else make CC="${CC}" AGGRESSIVE_WARNINGS=y EXTENSION="${EXTENSION}" OPENMP="${OPENMP}" ASAN="${ASAN}" UBSAN="${UBSAN}"; fi
+ - if [ "${BUILD_SYSTEM}" = "meson" ]; then ninja -Cbuild test; else make test; fi
 
 notifications:
   email: false
