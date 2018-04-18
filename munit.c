@@ -120,10 +120,10 @@
 #define MUNIT_STRINGIFY(x) #x
 #define MUNIT_XSTRINGIFY(x) MUNIT_STRINGIFY(x)
 
-#if (defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 201102L)) || defined(_Thread_local)
-#  define MUNIT_THREAD_LOCAL _Thread_local
-#elif defined(__GNUC__) || defined(__INTEL_COMPILER) || defined(__SUNPRO_CC) || defined(__IBMCPP__)
+#if defined(__GNUC__) || defined(__INTEL_COMPILER) || defined(__SUNPRO_CC) || defined(__IBMCPP__)
 #  define MUNIT_THREAD_LOCAL __thread
+#elif (defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 201102L)) || defined(_Thread_local)
+#  define MUNIT_THREAD_LOCAL _Thread_local
 #elif defined(_WIN32)
 #  define MUNIT_THREAD_LOCAL __declspec(thread)
 #endif
@@ -775,7 +775,7 @@ munit_clock_get_elapsed(struct PsnipClockTimespec* start, struct PsnipClockTimes
  * important that it be reproducible, so bug reports have a better
  * chance of being reproducible. */
 
-#if defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 201112L) && !defined(__STDC_NO_ATOMICS__) && !defined(__EMSCRIPTEN__)
+#if defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 201112L) && !defined(__STDC_NO_ATOMICS__) && !defined(__EMSCRIPTEN__) && (!defined(__GNUC_MINOR__) || (__GNUC__ > 4) || (__GNUC__ == 4 && __GNUC_MINOR__ > 8))
 #  define HAVE_STDATOMIC
 #elif defined(__clang__)
 #  if __has_extension(c_atomic)
