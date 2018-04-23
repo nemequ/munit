@@ -312,8 +312,8 @@ void munit_errorf_ex(const char* filename, int line, const char* format, ...);
     const char* munit_tmp_a_ = a; \
     const char* munit_tmp_b_ = b; \
     if (MUNIT_UNLIKELY(strcmp(munit_tmp_a_, munit_tmp_b_) != 0)) { \
-      munit_errorf("assertion failed: string " #a " == " #b " (\"%s\" == \"%s\")", \
-                   munit_tmp_a_, munit_tmp_b_); \
+      munit_errorf("assertion failed: string %s == %s (\"%s\" == \"%s\")", \
+                   #a, #b, munit_tmp_a_, munit_tmp_b_); \
     } \
     MUNIT__PUSH_DISABLE_MSVC_C4127 \
   } while (0) \
@@ -324,8 +324,8 @@ void munit_errorf_ex(const char* filename, int line, const char* format, ...);
     const char* munit_tmp_a_ = a; \
     const char* munit_tmp_b_ = b; \
     if (MUNIT_UNLIKELY(strcmp(munit_tmp_a_, munit_tmp_b_) == 0)) { \
-      munit_errorf("assertion failed: string " #a " != " #b " (\"%s\" == \"%s\")", \
-                   munit_tmp_a_, munit_tmp_b_); \
+      munit_errorf("assertion failed: string %s != %s (\"%s\" == \"%s\")", \
+                   #a, #b, munit_tmp_a_, munit_tmp_b_); \
     } \
     MUNIT__PUSH_DISABLE_MSVC_C4127 \
   } while (0) \
@@ -340,7 +340,8 @@ void munit_errorf_ex(const char* filename, int line, const char* format, ...);
       size_t munit_tmp_pos_; \
       for (munit_tmp_pos_ = 0 ; munit_tmp_pos_ < munit_tmp_size_ ; munit_tmp_pos_++) { \
         if (munit_tmp_a_[munit_tmp_pos_] != munit_tmp_b_[munit_tmp_pos_]) { \
-          munit_errorf("assertion failed: memory " #a " == " #b ", at offset %" MUNIT_SIZE_MODIFIER "u", munit_tmp_pos_); \
+          munit_errorf("assertion failed: memory %s == %s, at offset %" MUNIT_SIZE_MODIFIER "u", \
+                       #a, #b, munit_tmp_pos_); \
           break; \
         } \
       } \
@@ -355,7 +356,8 @@ void munit_errorf_ex(const char* filename, int line, const char* format, ...);
     const unsigned char* munit_tmp_b_ = (const unsigned char*) (b); \
     const size_t munit_tmp_size_ = (size); \
     if (MUNIT_UNLIKELY(memcmp(munit_tmp_a_, munit_tmp_b_, munit_tmp_size_)) == 0) { \
-      munit_errorf("assertion failed: memory" #a " != " #b " (%zu bytes)", munit_tmp_size_); \
+      munit_errorf("assertion failed: memory %s != %s (%zu bytes)", \
+                   #a, #b, munit_tmp_size_); \
     } \
     MUNIT__PUSH_DISABLE_MSVC_C4127 \
   } while (0) \
