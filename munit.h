@@ -233,8 +233,8 @@ void munit_errorf_ex(const char* filename, int line, const char* format, ...);
     T munit_tmp_a_ = (a); \
     T munit_tmp_b_ = (b); \
     if (!(munit_tmp_a_ op munit_tmp_b_)) {                               \
-      munit_errorf("assertion failed: " #a " " #op " " #b " (" prefix "%" fmt suffix " " #op " " prefix "%" fmt suffix ")", \
-                   munit_tmp_a_, munit_tmp_b_); \
+      munit_errorf("assertion failed: %s %s %s (" prefix "%" fmt suffix " %s " prefix "%" fmt suffix ")", \
+                   #a, #op, #b, munit_tmp_a_, #op, munit_tmp_b_); \
     } \
     MUNIT__PUSH_DISABLE_MSVC_C4127 \
   } while (0) \
@@ -299,8 +299,8 @@ void munit_errorf_ex(const char* filename, int line, const char* format, ...);
       -(munit_tmp_a_ - munit_tmp_b_) : \
       (munit_tmp_a_ - munit_tmp_b_); \
     if (MUNIT_UNLIKELY(munit_tmp_diff_ > 1e-##precision)) { \
-      munit_errorf("assertion failed: " #a " == " #b " (%0." #precision "g == %0." #precision "g)", \
-		   munit_tmp_a_, munit_tmp_b_); \
+      munit_errorf("assertion failed: %s == %s (%0." #precision "g == %0." #precision "g)", \
+		   #a, #b, munit_tmp_a_, munit_tmp_b_); \
     } \
     MUNIT__PUSH_DISABLE_MSVC_C4127 \
   } while (0) \
