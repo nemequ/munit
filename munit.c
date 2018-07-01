@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2017 Evan Nemerson <evan@nemerson.com>
+/* Copyright (c) 2013-2018 Evan Nemerson <evan@nemerson.com>
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
@@ -760,6 +760,8 @@ munit_clock_get_elapsed(struct PsnipClockTimespec* start, struct PsnipClockTimes
   return r;
 }
 
+#else
+#  include <time.h>
 #endif /* defined(MUNIT_ENABLE_TIMING) */
 
 /*** PRNG stuff ***/
@@ -900,11 +902,15 @@ munit_rand_seed(munit_uint32_t seed) {
 
 static munit_uint32_t
 munit_rand_generate_seed(void) {
-  struct PsnipClockTimespec wc = { 0, };
   munit_uint32_t seed, state;
+#if defined(MUNIT_ENABLE_TIMING)
+  struct PsnipClockTimespec wc = { 0, };
 
   psnip_clock_get_time(PSNIP_CLOCK_TYPE_WALL, &wc);
   seed = (munit_uint32_t) wc.nanoseconds;
+#else
+  seed = (munit_uint32_t) time(NULL);
+#endif
 
   state = munit_rand_next_state(seed + MUNIT_PRNG_INCREMENT);
   return munit_rand_from_state(state);
@@ -1059,10 +1065,12 @@ munit_parameters_get(const MunitParameter params[], const char* key) {
   return NULL;
 }
 
+#if defined(MUNIT_ENABLE_TIMING)
 static void
 munit_print_time(FILE* fp, munit_uint64_t nanoseconds) {
   fprintf(fp, "%" MUNIT_TEST_TIME_FORMAT, ((double) nanoseconds) / ((double) PSNIP_CLOCK_NSEC_PER_SEC));
 }
+#endif
 
 /* Add a paramter to an array of parameters. */
 static MunitResult
