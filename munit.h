@@ -331,6 +331,18 @@ void munit_errorf_ex(const char* filename, int line, const char* format, ...);
   } while (0) \
   MUNIT__POP_DISABLE_MSVC_C4127
 
+#define munit_assert_string_contains(a, b) \
+  do { \
+    const char* munit_tmp_a_ = a; \
+    const char* munit_tmp_b_ = b; \
+    if (MUNIT_UNLIKELY(strstr(munit_tmp_a_, munit_tmp_b_) == 0)) { \
+      munit_errorf("assertion failed: strstr(%s,%s) strstr(\"%s\",\"%s\")", \
+                   #a, #b, munit_tmp_a_, munit_tmp_b_); \
+    } \
+    MUNIT__PUSH_DISABLE_MSVC_C4127 \
+  } while (0) \
+  MUNIT__POP_DISABLE_MSVC_C4127
+
 #define munit_assert_memory_equal(size, a, b) \
   do { \
     const unsigned char* munit_tmp_a_ = (const unsigned char*) (a); \
