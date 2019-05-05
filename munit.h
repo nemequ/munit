@@ -182,6 +182,9 @@ typedef enum {
 #  define MUNIT_PRINTF(string_index, first_to_check)
 #endif
 
+#define MUNIT_END_TESTS {NULL, NULL, NULL, NULL, MUNIT_TEST_OPTION_NONE, NULL}
+#define MUNIT_SIMPLE_TEST(name, function) {name, function, NULL, NULL, MUNIT_TEST_OPTION_NONE, NULL}
+
 MUNIT_PRINTF(4, 5)
 void munit_logf_ex(MunitLogLevel level, const char* filename, int line, const char* format, ...);
 
