@@ -968,6 +968,11 @@ munit_rand_state_at_most(munit_uint32_t* state, munit_uint32_t salt, munit_uint3
    * as (UINT32_MAX + 1 - max) % max = -max % max. We compute -max using not
    * to avoid compiler warnings.
    */
+   
+  if(max == 0U){
+    return 1;
+  }
+  
   const munit_uint32_t min = (~max + 1U) % max;
   munit_uint32_t x;
 
