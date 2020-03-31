@@ -103,18 +103,18 @@
 #  if !defined(PRIu64)
 #    define PRIu64 "I64u"
 #  endif
-#  if !defined(bool)
-#    define bool int
-#  endif
-#  if !defined(true)
-#    define true (!0)
-#  endif
-#  if !defined(false)
-#    define false (!!0)
-#  endif
 #else
 #  include <inttypes.h>
-#  include <stdbool.h>
+#endif
+
+#if !defined(munit_bool)
+#  if defined(bool)
+#    define munit_bool bool
+#  elif defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L)
+#    define munit_bool _Bool
+#  else
+#    define munit_bool int
+#  endif
 #endif
 
 #if defined(__cplusplus)
@@ -469,7 +469,7 @@ typedef struct MunitArgument_ MunitArgument;
 
 struct MunitArgument_ {
   char* name;
-  bool (* parse_argument)(const MunitSuite* suite, void* user_data, int* arg, int argc, char* const argv[MUNIT_ARRAY_PARAM(argc + 1)]);
+  munit_bool (* parse_argument)(const MunitSuite* suite, void* user_data, int* arg, int argc, char* const argv[MUNIT_ARRAY_PARAM(argc + 1)]);
   void (* write_help)(const MunitArgument* argument, void* user_data);
 };
 
