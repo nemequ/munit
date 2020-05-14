@@ -396,6 +396,7 @@ void* munit_malloc_ex(const char* filename, int line, size_t size);
 
 void munit_rand_seed(munit_uint32_t seed);
 munit_uint32_t munit_rand_uint32(void);
+munit_uint32_t munit_rand_uint32_range(munit_uint32_t min, munit_uint32_t max);
 int munit_rand_int_range(int min, int max);
 double munit_rand_double(void);
 void munit_rand_memory(size_t size, munit_uint8_t buffer[MUNIT_ARRAY_PARAM(size)]);

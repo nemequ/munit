@@ -1009,6 +1009,17 @@ munit_rand_int_range(int min, int max) {
   return min + munit_rand_at_most(0, (munit_uint32_t) range);
 }
 
+munit_uint32_t
+munit_rand_uint32_range(munit_uint32_t min, munit_uint32_t max) {
+
+  munit_uint32_t range = (munit_uint32_t) max - (munit_uint32_t) min;
+
+  if (min > max)
+    return munit_rand_uint32_range(max, min);
+
+  return min + munit_rand_at_most(0, (munit_uint32_t) range);
+}
+
 double
 munit_rand_double(void) {
   munit_uint32_t old, state;
