@@ -649,7 +649,7 @@ psnip_clock_monotonic_get_precision (void) {
 #elif defined(PSNIP_CLOCK_MONOTONIC_METHOD) && PSNIP_CLOCK_MONOTONIC_METHOD == PSNIP_CLOCK_METHOD_CLOCK_GETTIME
   return psnip_clock__clock_getres(PSNIP_CLOCK_CLOCK_GETTIME_MONOTONIC);
 #elif defined(PSNIP_CLOCK_MONOTONIC_METHOD) && PSNIP_CLOCK_MONOTONIC_METHOD == PSNIP_CLOCK_METHOD_MACH_ABSOLUTE_TIME
-  static mach_timebase_info_data_t tbi = { 0, };
+  static mach_timebase_info_data_t tbi = { 0,0 };
   if (tbi.denom == 0)
     mach_timebase_info(&tbi);
   return (psnip_uint32_t) (tbi.numer / tbi.denom);
@@ -673,7 +673,7 @@ psnip_clock_monotonic_get_time (struct PsnipClockTimespec* res) {
   return psnip_clock__clock_gettime(PSNIP_CLOCK_CLOCK_GETTIME_MONOTONIC, res);
 #elif defined(PSNIP_CLOCK_MONOTONIC_METHOD) && PSNIP_CLOCK_MONOTONIC_METHOD == PSNIP_CLOCK_METHOD_MACH_ABSOLUTE_TIME
   psnip_uint64_t nsec = mach_absolute_time();
-  static mach_timebase_info_data_t tbi = { 0, };
+  static mach_timebase_info_data_t tbi = { 0,0 };
   if (tbi.denom == 0)
     mach_timebase_info(&tbi);
   nsec *= ((psnip_uint64_t) tbi.numer) / ((psnip_uint64_t) tbi.denom);
@@ -904,7 +904,7 @@ static munit_uint32_t
 munit_rand_generate_seed(void) {
   munit_uint32_t seed, state;
 #if defined(MUNIT_ENABLE_TIMING)
-  struct PsnipClockTimespec wc = { 0, };
+  struct PsnipClockTimespec wc = { 0,0 };
 
   psnip_clock_get_time(PSNIP_CLOCK_TYPE_WALL, &wc);
   seed = (munit_uint32_t) wc.nanoseconds;
@@ -1172,8 +1172,8 @@ munit_test_runner_exec(MunitTestRunner* runner, const MunitTest* test, const Mun
   unsigned int iterations = runner->iterations;
   MunitResult result = MUNIT_FAIL;
 #if defined(MUNIT_ENABLE_TIMING)
-  struct PsnipClockTimespec wall_clock_begin = { 0, }, wall_clock_end = { 0, };
-  struct PsnipClockTimespec cpu_clock_begin = { 0, }, cpu_clock_end = { 0, };
+  struct PsnipClockTimespec wall_clock_begin = { 0,0 }, wall_clock_end = { 0,0 };
+  struct PsnipClockTimespec cpu_clock_begin = { 0,0 }, cpu_clock_end = { 0,0 };
 #endif
   unsigned int i = 0;
 
