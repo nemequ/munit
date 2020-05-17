@@ -1296,7 +1296,6 @@ munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest*
 #if !defined(MUNIT_NO_FORK)
   int pipefd[2];
   pid_t fork_pid;
-  int orig_stderr;
   ssize_t bytes_written = 0;
   ssize_t write_res;
   ssize_t bytes_read = 0;
@@ -1350,6 +1349,8 @@ munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest*
 
     fork_pid = fork();
     if (fork_pid == 0) {
+      int orig_stderr;
+
       close(pipefd[0]);
 
       orig_stderr = munit_replace_stderr(stderr_buf);
