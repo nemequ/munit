@@ -1279,6 +1279,33 @@ munit_restore_stderr(int orig_stderr) {
 }
 #endif /* !defined(MUNIT_NO_BUFFER) */
 
+static FILE*
+munit_create_local_tempfile(char* buf_filename) {
+  FILE* result;
+
+  do {
+    if (tmpnam(buf_filename) == NULL) {
+      buf_filename[0] = '\0';
+      return NULL;
+    }
+
+#if defined(_WIN32)
+    /* Under Windows, tmpnam may generate a filename starting with backslash.
+     * https://stackoverflow.com/questions/38868858/fopen-of-file-name-created-by-tmpnam-fails-on-mingw
+     * We don't create the folders, so trying to fix only this edge case.
+     * To avoid changes to the filename tested by tmpnam, memmove is used. */
+    if (buf_filename[0] == '\\')
+      memmove(buf_filename, buf_filename+1, L_tmpnam-1);
+#endif
+
+    /* Someone who uses the same tmpnam algorithm may create the file between
+     * calls to tmpnam and fopen here, so we need this additional check. */
+    result = fopen(buf_filename, "wb+");
+  } while (result == NULL);
+
+  return result;
+}
+
 /* Run a test with the specified parameters. */
 static void
 munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest* test, const MunitParameter params[]) {
@@ -1292,7 +1319,8 @@ munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest*
   unsigned int output_l;
   munit_bool first;
   const MunitParameter* param;
-  FILE* stderr_buf;
+  FILE* stderr_buf = NULL;
+  char local_tmpfn[L_tmpnam] = { 0, };
 #if !defined(MUNIT_NO_FORK)
   int pipefd[2];
   pid_t fork_pid;
@@ -1326,16 +1354,20 @@ munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest*
 
   fflush(MUNIT_OUTPUT_FILE);
 
-  stderr_buf = NULL;
 #if !defined(_WIN32) || defined(__MINGW32__)
   stderr_buf = tmpfile();
 #else
   tmpfile_s(&stderr_buf);
 #endif
   if (stderr_buf == NULL) {
-    munit_log_errno(MUNIT_LOG_ERROR, stderr, "unable to create buffer for stderr");
-    result = MUNIT_ERROR;
-    goto print_result;
+    /* On some systems (e.g. Windows), tmpfile may require elevated privileges. */
+    stderr_buf = munit_create_local_tempfile(local_tmpfn);
+
+    if (stderr_buf == NULL) {
+      munit_log_errno(MUNIT_LOG_ERROR, stderr, "unable to create buffer for stderr");
+      result = MUNIT_ERROR;
+      goto print_result;
+    }
   }
 
 #if !defined(MUNIT_NO_FORK)
@@ -1513,6 +1545,8 @@ munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest*
     }
 
     fclose(stderr_buf);
+    if (local_tmpfn[0] != '\0')
+      remove(local_tmpfn);
   }
 }
 
