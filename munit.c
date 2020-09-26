@@ -154,7 +154,7 @@ static MUNIT_THREAD_LOCAL jmp_buf munit_error_jmp_buf;
 #endif
 
 /* At certain warning levels, mingw will trigger warnings about
- * suggesting the format attribute, which we've explicity *not* set
+ * suggesting the format attribute, which we've explicitly *not* set
  * because it will then choke on our attempts to use the MS-specific
  * I64 modifier for size_t (which we have to use since MSVC doesn't
  * support the C99 z modifier). */
@@ -298,7 +298,7 @@ munit_malloc_ex(const char* filename, int line, size_t size) {
  * sync. */
 
 /* Clocks (v1)
- * Portable Snippets - https://gitub.com/nemequ/portable-snippets
+ * Portable Snippets - https://github.com/nemequ/portable-snippets
  * Created by Evan Nemerson <evan@nemerson.com>
  *
  *   To the extent possible under law, the authors have waived all
@@ -1072,7 +1072,7 @@ munit_print_time(FILE* fp, munit_uint64_t nanoseconds) {
 }
 #endif
 
-/* Add a paramter to an array of parameters. */
+/* Add a parameter to an array of parameters. */
 static MunitResult
 munit_parameters_add(size_t* params_size, MunitParameter* params[MUNIT_ARRAY_PARAM(*params_size)], char* name, char* value) {
   *params = realloc(*params, sizeof(MunitParameter) * (*params_size + 2));
@@ -1119,7 +1119,7 @@ munit_maybe_concat(size_t* len, char* prefix, char* suffix) {
   return res;
 }
 
-/* Possbily free a string returned by munit_maybe_concat. */
+/* Possibly free a string returned by munit_maybe_concat. */
 static void
 munit_maybe_free_concat(char* s, const char* prefix, const char* suffix) {
   if (prefix != s && suffix != s)
@@ -1279,6 +1279,33 @@ munit_restore_stderr(int orig_stderr) {
 }
 #endif /* !defined(MUNIT_NO_BUFFER) */
 
+static FILE*
+munit_create_local_tempfile(char* buf_filename) {
+  FILE* result;
+
+  do {
+    if (tmpnam(buf_filename) == NULL) {
+      buf_filename[0] = '\0';
+      return NULL;
+    }
+
+#if defined(_WIN32)
+    /* Under Windows, tmpnam may generate a filename starting with backslash.
+     * https://stackoverflow.com/questions/38868858/fopen-of-file-name-created-by-tmpnam-fails-on-mingw
+     * We don't create the folders, so trying to fix only this edge case.
+     * To avoid changes to the filename tested by tmpnam, memmove is used. */
+    if (buf_filename[0] == '\\')
+      memmove(buf_filename, buf_filename+1, L_tmpnam-1);
+#endif
+
+    /* Someone who uses the same tmpnam algorithm may create the file between
+     * calls to tmpnam and fopen here, so we need this additional check. */
+    result = fopen(buf_filename, "wb+");
+  } while (result == NULL);
+
+  return result;
+}
+
 /* Run a test with the specified parameters. */
 static void
 munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest* test, const MunitParameter params[]) {
@@ -1292,7 +1319,8 @@ munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest*
   unsigned int output_l;
   munit_bool first;
   const MunitParameter* param;
-  FILE* stderr_buf;
+  FILE* stderr_buf = NULL;
+  char local_tmpfn[L_tmpnam] = { 0, };
 #if !defined(MUNIT_NO_FORK)
   int pipefd[2];
   pid_t fork_pid;
@@ -1326,16 +1354,20 @@ munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest*
 
   fflush(MUNIT_OUTPUT_FILE);
 
-  stderr_buf = NULL;
 #if !defined(_WIN32) || defined(__MINGW32__)
   stderr_buf = tmpfile();
 #else
   tmpfile_s(&stderr_buf);
 #endif
   if (stderr_buf == NULL) {
-    munit_log_errno(MUNIT_LOG_ERROR, stderr, "unable to create buffer for stderr");
-    result = MUNIT_ERROR;
-    goto print_result;
+    /* On some systems (e.g. Windows), tmpfile may require elevated privileges. */
+    stderr_buf = munit_create_local_tempfile(local_tmpfn);
+
+    if (stderr_buf == NULL) {
+      munit_log_errno(MUNIT_LOG_ERROR, stderr, "unable to create buffer for stderr");
+      result = MUNIT_ERROR;
+      goto print_result;
+    }
   }
 
 #if !defined(MUNIT_NO_FORK)
@@ -1513,6 +1545,8 @@ munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest*
     }
 
     fclose(stderr_buf);
+    if (local_tmpfn[0] != '\0')
+      remove(local_tmpfn);
   }
 }
 
@@ -1650,7 +1684,7 @@ munit_test_runner_run_test(MunitTestRunner* runner,
 }
 
 /* Recurse through the suite and run all the tests.  If a list of
- * tests to run was provied on the command line, run only those
+ * tests to run was provided on the command line, run only those
  * tests.  */
 static void
 munit_test_runner_run_suite(MunitTestRunner* runner,
