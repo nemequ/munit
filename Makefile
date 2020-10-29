@@ -43,8 +43,8 @@ ifneq ($(CC),pgcc)
         endif
 endif
 
-example$(EXTENSION): munit.h munit.c example.c
-	$(CC) $(CFLAGS) -o $@ munit.c example.c
+example$(EXTENSION): include/munit.h src/munit.c src/example.c
+	$(CC) $(CFLAGS) -o $@ src/munit.c src/example.c
 
 test:
 	$(TEST_ENV) ./example$(EXTENSION)
