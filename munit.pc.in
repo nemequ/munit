@@ -4,6 +4,6 @@ includedir=${prefix}/include
 
 Name: munit
 Description: µnit Testing Library for C
-Version: 0.2.0
+Version: 0.4.1
 Libs: -L${libdir} -lmunit
 Cflags: -I${includedir}

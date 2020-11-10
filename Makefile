@@ -44,7 +44,7 @@ ifneq ($(CC),pgcc)
 endif
 
 example$(EXTENSION): 
-	$(CC) $(CFLAGS) -o $@ -I include src/munit.c src/example.c
+	$(CC) $(CFLAGS) -o $@ -I ./ munit.c example.c
 
 test:
 	$(TEST_ENV) ./example$(EXTENSION)
