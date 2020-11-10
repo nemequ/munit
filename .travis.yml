@@ -142,7 +142,7 @@ before_install:
 - if [ "${BUILD_SYSTEM}" = "meson" ]; then wget -O /tmp/ninja-linux.zip $(curl -s https://api.github.com/repos/ninja-build/ninja/releases/latest | grep -oP 'https://github.com/ninja-build/ninja/releases/download/v[0-9\.]+/ninja-linux.zip') && unzip -q /tmp/ninja-linux.zip -d ~/bin && pyenv local 3.6 && pip3 install meson; fi
 
 script:
- - if [ "${BUILD_SYSTEM}" = "meson" ]; then meson build && ninja -Cbuild; else make CC="${CC}" AGGRESSIVE_WARNINGS=y EXTENSION="${EXTENSION}" OPENMP="${OPENMP}" ASAN="${ASAN}" UBSAN="${UBSAN}"; fi
+ - if [ "${BUILD_SYSTEM}" = "meson" ]; then meson build && ninja -Cbuild; else make CC="${CC}" EXTRA_WARNINGS=y EXTENSION="${EXTENSION}" OPENMP="${OPENMP}" ASAN="${ASAN}" UBSAN="${UBSAN}"; fi
  - if [ "${BUILD_SYSTEM}" = "meson" ]; then ninja -Cbuild test; else make test; fi
 
 notifications:

@@ -9,7 +9,7 @@ UBSAN:=n
 EXTENSION:=
 TEST_ENV:=
 CFLAGS:=
-AGGRESSIVE_WARNINGS=n
+EXTRA_WARNINGS=n
 
 ifeq ($(CC),pgcc)
         CFLAGS+=-c$(CSTD)
