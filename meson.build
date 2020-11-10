@@ -1,9 +1,7 @@
-project('munit', 'c')
+project('munit', 'c', default_options : ['c_std=c99'])
 
 conf_data = configuration_data()
 conf_data.set('version', '0.2.0')
-
-add_project_arguments('-std=c99', language : 'c')
 
 cc  = meson.get_compiler('c')
 
@@ -11,6 +9,7 @@ root_include = include_directories('.')
 
 munit = library('munit',
     ['munit.c'],
+    include_directories: root_include,
     install: meson.is_subproject())
 
 if meson.is_subproject()

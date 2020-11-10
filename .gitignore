@@ -4,3 +4,7 @@
 /example
 /*.exe
 /*.dll
+build/
+lib/
+bin/
+.DS_Store
