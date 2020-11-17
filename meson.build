@@ -11,7 +11,7 @@ root_include = include_directories('.')
 
 munit = library('munit',
     ['munit.c'],
-    install: meson.is_subproject())
+    install: not meson.is_subproject())
 
 if meson.is_subproject()
   munit_dep = declare_dependency(
