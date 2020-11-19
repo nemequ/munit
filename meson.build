@@ -1,9 +1,4 @@
-project('munit', 'c')
-
-conf_data = configuration_data()
-conf_data.set('version', '0.2.0')
-
-add_project_arguments('-std=c99', language : 'c')
+project('munit', 'c', version: '0.2.0'), default_options : ['c_std=c99'])
 
 cc  = meson.get_compiler('c')
 
@@ -11,7 +6,8 @@ root_include = include_directories('.')
 
 munit = library('munit',
     ['munit.c'],
-    install: meson.is_subproject())
+    version: meson.project_version(),
+    install: not meson.is_subproject())
 
 if meson.is_subproject()
   munit_dep = declare_dependency(
@@ -24,7 +20,7 @@ else
   pkg = import('pkgconfig')
   pkg.generate(name: 'munit',
                 description: 'µnit Testing Library for C',
-                version: conf_data.get('version'),
+                version: meson.project_version(),
                 libraries: munit)
 
   # compile the demo project
