@@ -1,6 +1,4 @@
-project('munit', 'c', version: '0.2.0')
-
-add_project_arguments('-std=c99', language : 'c')
+project('munit', 'c', version: '0.2.0'), default_options : ['c_std=c99'])
 
 cc  = meson.get_compiler('c')
 
