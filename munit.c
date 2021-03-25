@@ -122,10 +122,12 @@
 
 #if defined(__GNUC__) || defined(__INTEL_COMPILER) || defined(__SUNPRO_CC) || defined(__IBMCPP__)
 #  define MUNIT_THREAD_LOCAL __thread
-#elif (defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 201102L)) || defined(_Thread_local)
-#  define MUNIT_THREAD_LOCAL _Thread_local
 #elif defined(_WIN32)
 #  define MUNIT_THREAD_LOCAL __declspec(thread)
+#elif defined(_Thread_local)
+#  define MUNIT_THREAD_LOCAL _Thread_local
+#elif defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 201102L)
+#  define MUNIT_THREAD_LOCAL _Thread_local
 #endif
 
 /* MSVC 12.0 will emit a warning at /W4 for code like 'do { ... }
