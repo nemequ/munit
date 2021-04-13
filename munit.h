@@ -513,7 +513,7 @@ int munit_suite_main_custom(const MunitSuite* suite,
 #define assert_memory_not_equal(size, a, b) munit_assert_memory_not_equal(size, a, b)
 #define assert_ptr_equal(a, b) munit_assert_ptr_equal(a, b)
 #define assert_ptr_not_equal(a, b) munit_assert_ptr_not_equal(a, b)
-#define assert_ptr_null(ptr) munit_assert_null_equal(ptr)
+#define assert_ptr_null(ptr) munit_assert_ptr_null(ptr)
 #define assert_ptr_not_null(ptr) munit_assert_not_null(ptr)
 
 #define assert_null(ptr) munit_assert_null(ptr)
