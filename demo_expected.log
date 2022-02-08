@@ -1,0 +1,51 @@
+# Happy Path Tests
+Executing all with pattern 
+/kat/symmetric/sha2/compare          
+/kat/symmetric/sha2/rand             
+/kat/symmetric/sha3/compare          
+/kat/symmetric/sha3/rand             
+/kat/asymmetric/x25519/compare       
+/kat/asymmetric/x25519/rand          
+/kat/asymmetric/NIST/compare         
+/kat/asymmetric/NIST/rand            
+/unit/symmetric/sha2/compare         
+/unit/symmetric/sha2/rand            
+/unit/symmetric/sha3/compare         
+/unit/symmetric/sha3/rand            
+/unit/asymmetric/x25519/compare      
+/unit/asymmetric/x25519/rand         
+/unit/asymmetric/NIST/compare        
+/unit/asymmetric/NIST/rand           
+/perf/symmetric/sha2/compare         
+/perf/symmetric/sha2/rand            
+/perf/symmetric/sha3/compare         
+/perf/symmetric/sha3/rand            
+/perf/asymmetric/x25519/compare      
+/perf/asymmetric/x25519/rand         
+/perf/asymmetric/NIST/compare        
+/perf/asymmetric/NIST/rand           
+Executing at first level with pattern /perf
+/perf/symmetric/sha2/compare         
+/perf/symmetric/sha2/rand            
+/perf/symmetric/sha3/compare         
+/perf/symmetric/sha3/rand            
+/perf/asymmetric/x25519/compare      
+/perf/asymmetric/x25519/rand         
+/perf/asymmetric/NIST/compare        
+/perf/asymmetric/NIST/rand           
+Executing at second level with pattern /perf/symmetric
+/perf/symmetric/sha2/compare         
+/perf/symmetric/sha2/rand            
+/perf/symmetric/sha3/compare         
+/perf/symmetric/sha3/rand            
+Executing at third level with pattern /perf/symmetric/sha2
+/perf/symmetric/sha2/compare         
+/perf/symmetric/sha2/rand            
+Executing at leaf level with pattern /perf/symmetric/sha2/rand
+/perf/symmetric/sha2/rand            
+# Not Happy Path Tests
+Executing something that doesn't exist with pattern /xx
+No tests run, 0 (100%) skipped.
+Executing something that doesn't exist (2) with pattern /xx/rand
+No tests run, 0 (100%) skipped.
+Script finished successfully
