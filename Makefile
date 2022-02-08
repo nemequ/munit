@@ -46,6 +46,9 @@ endif
 example$(EXTENSION): munit.h munit.c example.c
 	$(CC) $(CFLAGS) -o $@ munit.c example.c
 
+test_setup$(EXTENSION): munit.h munit.c test_setup.c
+	$(CC) $(CFLAGS) -o $@ munit.c test_setup.c
+
 test:
 	$(TEST_ENV) ./example$(EXTENSION)
 
