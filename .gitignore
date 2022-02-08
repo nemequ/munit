@@ -4,3 +4,9 @@
 /example
 /*.exe
 /*.dll
+
+.idea/
+cmake-*/
+
+*_actual.log
+
