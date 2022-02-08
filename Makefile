@@ -56,3 +56,9 @@ clean:
 	rm -f example$(EXTENSION)
 
 all: example$(EXTENSION)
+
+demo_actual.log:
+	rm -f demo_actual.log && touch demo_actual.log
+	bash ./demo.sh 2>&1 | tee -a demo_actual.log
+	diff -q demo_actual.log demo_expected.log
+.PHONY: demo_actual.log

@@ -1655,16 +1655,27 @@ munit_test_runner_run_test(MunitTestRunner* runner,
 static void
 munit_test_runner_run_suite(MunitTestRunner* runner,
                             const MunitSuite* suite,
-                            const char* prefix) {
+                            const char* prefix,
+                            bool forced) {
   size_t pre_l;
   char* pre = munit_maybe_concat(&pre_l, (char*) prefix, (char*) suite->prefix);
   const MunitTest* test;
   const char** test_name;
   const MunitSuite* child_suite;
+  bool is_top = pre_l == 0;
+  const char **user_submitted_ptr = runner->tests;
+  bool run_all_tests = user_submitted_ptr == NULL;
+  forced |= (true
+             && suite->prefix != NULL
+             && strlen(suite->prefix) > 0
+             && user_submitted_ptr != NULL
+             && strcmp(*user_submitted_ptr, pre) == 0);
 
   /* Run the tests. */
   for (test = suite->tests ; test != NULL && test->test != NULL ; test++) {
-    if (runner->tests != NULL) { /* Specific tests were requested on the CLI */
+    if (forced || run_all_tests) {
+      munit_test_runner_run_test(runner, test, pre);
+    } else { /* Specific tests were requested on the CLI */
       for (test_name = runner->tests ; test_name != NULL && *test_name != NULL ; test_name++) {
         if ((pre_l == 0 || strncmp(pre, *test_name, pre_l) == 0) &&
             strncmp(test->name, *test_name + pre_l, strlen(*test_name + pre_l)) == 0) {
@@ -1673,8 +1684,6 @@ munit_test_runner_run_suite(MunitTestRunner* runner,
             goto cleanup;
         }
       }
-    } else { /* Run all tests */
-      munit_test_runner_run_test(runner, test, pre);
     }
   }
 
@@ -1683,7 +1692,7 @@ munit_test_runner_run_suite(MunitTestRunner* runner,
 
   /* Run any child suites. */
   for (child_suite = suite->suites ; child_suite != NULL && child_suite->prefix != NULL ; child_suite++) {
-    munit_test_runner_run_suite(runner, child_suite, pre);
+    munit_test_runner_run_suite(runner, child_suite, pre, forced);
   }
 
  cleanup:
@@ -1693,7 +1702,7 @@ munit_test_runner_run_suite(MunitTestRunner* runner,
 
 static void
 munit_test_runner_run(MunitTestRunner* runner) {
-  munit_test_runner_run_suite(runner, runner->suite, NULL);
+  munit_test_runner_run_suite(runner, runner->suite, NULL, false);
 }
 
 static void
