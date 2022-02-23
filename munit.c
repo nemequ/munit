@@ -1042,6 +1042,7 @@ typedef struct {
 typedef struct {
   const char* prefix;
   const MunitSuite* suite;
+  const MunitSuite* current_suite;
   const char** tests;
   munit_uint32_t seed;
   unsigned int iterations;
@@ -1180,7 +1181,7 @@ munit_test_runner_exec(MunitTestRunner* runner, const MunitTest* test, const Mun
   if ((test->options & MUNIT_TEST_OPTION_SINGLE_ITERATION) == MUNIT_TEST_OPTION_SINGLE_ITERATION)
     iterations = 1;
   else if (iterations == 0)
-    iterations = runner->suite->iterations;
+    iterations = runner->current_suite->iterations;
 
   munit_rand_seed(runner->seed);
 
@@ -1657,17 +1658,26 @@ munit_test_runner_run_suite(MunitTestRunner* runner,
                             const MunitSuite* suite,
                             const char* prefix) {
   size_t pre_l;
+  size_t test_name_l;
+  int is_suite_name_prefix;
+  int is_test_name_prefix;
   char* pre = munit_maybe_concat(&pre_l, (char*) prefix, (char*) suite->prefix);
   const MunitTest* test;
   const char** test_name;
   const MunitSuite* child_suite;
+  runner->current_suite = suite;
 
   /* Run the tests. */
   for (test = suite->tests ; test != NULL && test->test != NULL ; test++) {
     if (runner->tests != NULL) { /* Specific tests were requested on the CLI */
       for (test_name = runner->tests ; test_name != NULL && *test_name != NULL ; test_name++) {
-        if ((pre_l == 0 || strncmp(pre, *test_name, pre_l) == 0) &&
-            strncmp(test->name, *test_name + pre_l, strlen(*test_name + pre_l)) == 0) {
+        test_name_l = strlen(*test_name);
+        /* test_name contains only a suite name prefix */
+        is_suite_name_prefix = (test_name_l < pre_l) && strncmp(pre, *test_name, test_name_l) == 0;
+        /* test_name is a test name with suite name prefix */
+        is_test_name_prefix = (pre_l == 0 || strncmp(pre, *test_name, pre_l) == 0) &&
+                              strncmp(test->name, *test_name + pre_l, strlen(*test_name + pre_l)) == 0;
+        if (is_suite_name_prefix || is_test_name_prefix) {
           munit_test_runner_run_test(runner, test, pre);
           if (runner->fatal_failures && (runner->report.failed != 0 || runner->report.errored != 0))
             goto cleanup;
@@ -1853,6 +1863,7 @@ munit_suite_main_custom(const MunitSuite* suite, void* user_data,
 
   runner.prefix = NULL;
   runner.suite = NULL;
+  runner.current_suite = NULL;
   runner.tests = NULL;
   runner.seed = 0;
   runner.iterations = 0;
@@ -2037,7 +2048,12 @@ munit_suite_main_custom(const MunitSuite* suite, void* user_data,
             (((double) runner.report.skipped) / ((double) tests_total)) * 100.0);
   }
 
+
+#if defined(MUNIT_FAIL_NO_TEST_RUN)
+  if (runner.report.failed == 0 && runner.report.errored == 0 && tests_run > 0) {
+#else
   if (runner.report.failed == 0 && runner.report.errored == 0) {
+#endif
     result = EXIT_SUCCESS;
   }
 
