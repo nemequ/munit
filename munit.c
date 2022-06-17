@@ -259,7 +259,13 @@ munit_log_errno(MunitLogLevel level, FILE* fp, const char* msg) {
   munit_error_str[0] = '\0';
 
 #if !defined(_WIN32)
+#if defined(_POSIX_C_SOURCE) && (_POSIX_C_SOURCE >= 200112L) && !defined(_GNU_SOURCE)
   strerror_r(errno, munit_error_str, MUNIT_STRERROR_LEN);
+#else
+  char *s = strerror_r(errno, munit_error_str, MUNIT_STRERROR_LEN);
+  munit_logf_internal(level, fp, "%s: %s (%d)", msg, s, errno);
+  return ;
+#endif
 #else
   strerror_s(munit_error_str, MUNIT_STRERROR_LEN, errno);
 #endif
@@ -526,7 +532,7 @@ psnip_clock__clock_getres (clockid_t clk_id) {
   if (r != 0)
     return 0;
 
-  return (psnip_uint32_t) (PSNIP_CLOCK_NSEC_PER_SEC / res.tv_nsec);
+  return (psnip_uint32_t) (PSNIP_CLOCK_NSEC_PER_SEC / (psnip_uint32_t) res.tv_nsec);
 }
 
 PSNIP_CLOCK__FUNCTION int
@@ -575,8 +581,8 @@ psnip_clock_wall_get_time (struct PsnipClockTimespec* res) {
   if (gettimeofday(&tv, NULL) != 0)
     return -6;
 
-  res->seconds = tv.tv_sec;
-  res->nanoseconds = tv.tv_usec * 1000;
+  res->seconds = (psnip_uint64_t) tv.tv_sec;
+  res->nanoseconds = (psnip_uint64_t) (tv.tv_usec * 1000);
 #else
   return -2;
 #endif
@@ -620,13 +626,13 @@ psnip_clock_cpu_get_time (struct PsnipClockTimespec* res) {
     return -7;
 
   /* http://www.frenk.com/2009/12/convert-filetime-to-unix-timestamp/ */
-  date.HighPart = UserTime.dwHighDateTime;
-  date.LowPart = UserTime.dwLowDateTime;
+  date.HighPart = (LONG) UserTime.dwHighDateTime;
+  date.LowPart = (DWORD) UserTime.dwLowDateTime;
   adjust.QuadPart = 11644473600000 * 10000;
   date.QuadPart -= adjust.QuadPart;
 
-  res->seconds = date.QuadPart / 10000000;
-  res->nanoseconds = (date.QuadPart % 10000000) * (PSNIP_CLOCK_NSEC_PER_SEC / 100);
+  res->seconds = (psnip_uint64_t) date.QuadPart / 10000000;
+  res->nanoseconds = (psnip_uint64_t) (date.QuadPart % 10000000) * (PSNIP_CLOCK_NSEC_PER_SEC / 100);
 #elif PSNIP_CLOCK_CPU_METHOD == PSNIP_CLOCK_METHOD_GETRUSAGE
   struct rusage usage;
   if (getrusage(RUSAGE_SELF, &usage) != 0)
@@ -685,12 +691,12 @@ psnip_clock_monotonic_get_time (struct PsnipClockTimespec* res) {
     return -12;
 
   QueryPerformanceFrequency(&f);
-  res->seconds = t.QuadPart / f.QuadPart;
-  res->nanoseconds = t.QuadPart % f.QuadPart;
+  res->seconds =   (psnip_uint64_t) t.QuadPart / (psnip_uint64_t) f.QuadPart;
+  res->nanoseconds = (psnip_uint64_t) t.QuadPart % (psnip_uint64_t) f.QuadPart;
   if (f.QuadPart > PSNIP_CLOCK_NSEC_PER_SEC)
-    res->nanoseconds /= f.QuadPart / PSNIP_CLOCK_NSEC_PER_SEC;
+    res->nanoseconds /= ((psnip_uint64_t) f.QuadPart / PSNIP_CLOCK_NSEC_PER_SEC);
   else
-    res->nanoseconds *= PSNIP_CLOCK_NSEC_PER_SEC / f.QuadPart;
+    res->nanoseconds *= (PSNIP_CLOCK_NSEC_PER_SEC / (psnip_uint64_t) f.QuadPart);
 #elif defined(PSNIP_CLOCK_MONOTONIC_METHOD) && PSNIP_CLOCK_MONOTONIC_METHOD == PSNIP_CLOCK_METHOD_GETTICKCOUNT64
   const ULONGLONG msec = GetTickCount64();
   res->seconds = msec / 1000;
@@ -723,9 +729,11 @@ psnip_clock_get_precision (enum PsnipClockType clock_type) {
       return psnip_clock_cpu_get_precision ();
     case PSNIP_CLOCK_TYPE_WALL:
       return psnip_clock_wall_get_precision ();
+    default:
+      PSNIP_CLOCK_UNREACHABLE();
+      break;
   }
 
-  PSNIP_CLOCK_UNREACHABLE();
   return 0;
 }
 
@@ -742,6 +750,8 @@ psnip_clock_get_time (enum PsnipClockType clock_type, struct PsnipClockTimespec*
       return psnip_clock_cpu_get_time (res);
     case PSNIP_CLOCK_TYPE_WALL:
       return psnip_clock_wall_get_time (res);
+    default:
+      return -1;
   }
 
   return -1;
@@ -928,7 +938,7 @@ munit_rand_uint32(void) {
   munit_uint32_t old, state;
 
   do {
-    old = munit_atomic_load(&munit_rand_state);
+    old = (munit_uint32_t) munit_atomic_load(&munit_rand_state);
     state = munit_rand_next_state(old);
   } while (!munit_atomic_cas(&munit_rand_state, &old, state));
 
@@ -957,7 +967,7 @@ munit_rand_memory(size_t size, munit_uint8_t data[MUNIT_ARRAY_PARAM(size)]) {
   munit_uint32_t old, state;
 
   do {
-    state = old = munit_atomic_load(&munit_rand_state);
+    state = old = (munit_uint32_t) munit_atomic_load(&munit_rand_state);
     munit_rand_state_memory(&state, size, data);
   } while (!munit_atomic_cas(&munit_rand_state, &old, state));
 }
@@ -989,7 +999,7 @@ munit_rand_at_most(munit_uint32_t salt, munit_uint32_t max) {
   munit_uint32_t retval;
 
   do {
-    state = old = munit_atomic_load(&munit_rand_state);
+    state = old = (munit_uint32_t) munit_atomic_load(&munit_rand_state);
     retval = munit_rand_state_at_most(&state, salt, max);
   } while (!munit_atomic_cas(&munit_rand_state, &old, state));
 
@@ -1006,7 +1016,7 @@ munit_rand_int_range(int min, int max) {
   if (range > (~((munit_uint32_t) 0U)))
     range = (~((munit_uint32_t) 0U));
 
-  return min + munit_rand_at_most(0, (munit_uint32_t) range);
+  return min + (int)munit_rand_at_most(0, (munit_uint32_t) range);
 }
 
 double
@@ -1015,7 +1025,7 @@ munit_rand_double(void) {
   double retval = 0.0;
 
   do {
-    state = old = munit_atomic_load(&munit_rand_state);
+    state = old = (munit_uint32_t) munit_atomic_load(&munit_rand_state);
 
     /* See http://mumble.net/~campbell/tmp/random_real.c for how to do
      * this right.  Patches welcome if you feel that this is too
@@ -1090,9 +1100,9 @@ munit_parameters_add(size_t* params_size, MunitParameter* params[MUNIT_ARRAY_PAR
 
 /* Concatenate two strings, but just return one of the components
  * unaltered if the other is NULL or "". */
-static char*
-munit_maybe_concat(size_t* len, char* prefix, char* suffix) {
-  char* res;
+static const char*
+munit_maybe_concat(size_t* len, const char* prefix, const char* suffix, char **concat_name) {
+  const char* res;
   size_t res_l;
   const size_t prefix_l = prefix != NULL ? strlen(prefix) : 0;
   const size_t suffix_l = suffix != NULL ? strlen(suffix) : 0;
@@ -1106,24 +1116,20 @@ munit_maybe_concat(size_t* len, char* prefix, char* suffix) {
     res = prefix;
     res_l = prefix_l;
   } else {
+    char *new_res;
     res_l = prefix_l + suffix_l;
-    res = malloc(res_l + 1);
-    memcpy(res, prefix, prefix_l);
-    memcpy(res + prefix_l, suffix, suffix_l);
-    res[res_l] = 0;
+    new_res = malloc(res_l + 1);
+    memcpy(new_res, prefix, prefix_l);
+    memcpy(new_res + prefix_l, suffix, suffix_l);
+    new_res[res_l] = 0;
+    *concat_name = new_res;
+    res = (const char *)new_res;
   }
 
   if (len != NULL)
     *len = res_l;
 
   return res;
-}
-
-/* Possbily free a string returned by munit_maybe_concat. */
-static void
-munit_maybe_free_concat(char* s, const char* prefix, const char* suffix) {
-  if (prefix != s && suffix != s)
-    free(s);
 }
 
 /* Cheap string hash function, just used to salt the PRNG. */
@@ -1133,7 +1139,7 @@ munit_str_hash(const char* name) {
   munit_uint32_t h = 5381U;
 
   for (p = name; *p != '\0'; p++)
-    h = (h << 5) + h + *p;
+    h = (h << 5) + h + (unsigned char)*p;
 
   return h;
 }
@@ -1155,7 +1161,7 @@ munit_splice(int from, int to) {
     if (len > 0) {
       bytes_written = 0;
       do {
-        write_res = write(to, buf + bytes_written, len - bytes_written);
+        write_res = write(to, buf + bytes_written, (size_t) len - (size_t) bytes_written);
         if (write_res < 0)
           break;
         bytes_written += write_res;
@@ -1293,10 +1299,11 @@ munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest*
   munit_bool first;
   const MunitParameter* param;
   FILE* stderr_buf;
+  volatile int orig_stderr;
+  int fprint_res;
 #if !defined(MUNIT_NO_FORK)
   int pipefd[2];
   pid_t fork_pid;
-  int orig_stderr;
   ssize_t bytes_written = 0;
   ssize_t write_res;
   ssize_t bytes_read = 0;
@@ -1317,7 +1324,8 @@ munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest*
         first = 0;
       }
 
-      output_l += fprintf(MUNIT_OUTPUT_FILE, "%s=%s", param->name, param->value);
+      fprint_res = fprintf(MUNIT_OUTPUT_FILE, "%s=%s", param->name, param->value);
+      output_l +=  (unsigned int)(fprint_res >= 0 ? fprint_res : 0);
     }
     while (output_l++ < MUNIT_TEST_NAME_LEN) {
       fputc(' ', MUNIT_OUTPUT_FILE);
@@ -1361,7 +1369,7 @@ munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest*
       close(orig_stderr);
 
       do {
-        write_res = write(pipefd[1], ((munit_uint8_t*) (&report)) + bytes_written, sizeof(report) - bytes_written);
+        write_res = write(pipefd[1], ((munit_uint8_t*) (&report)) + bytes_written, sizeof(report) - (size_t)bytes_written);
         if (write_res < 0) {
           if (stderr_buf != NULL) {
             munit_log_errno(MUNIT_LOG_ERROR, stderr, "unable to write to pipe");
@@ -1387,7 +1395,7 @@ munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest*
     } else {
       close(pipefd[1]);
       do {
-        read_res = read(pipefd[0], ((munit_uint8_t*) (&report)) + bytes_read, sizeof(report) - bytes_read);
+        read_res = read(pipefd[0], ((munit_uint8_t*) (&report)) + bytes_read, sizeof(report) - (size_t)bytes_read);
         if (read_res < 1)
           break;
         bytes_read += read_res;
@@ -1423,7 +1431,7 @@ munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest*
 #endif
   {
 #if !defined(MUNIT_NO_BUFFER)
-    const volatile int orig_stderr = munit_replace_stderr(stderr_buf);
+    orig_stderr = munit_replace_stderr(stderr_buf);
 #endif
 
 #if defined(MUNIT_THREAD_LOCAL)
@@ -1553,7 +1561,8 @@ static void
 munit_test_runner_run_test(MunitTestRunner* runner,
                            const MunitTest* test,
                            const char* prefix) {
-  char* test_name = munit_maybe_concat(NULL, (char*) prefix, (char*) test->name);
+  char *concat_name = NULL;
+  const char* test_name = munit_maybe_concat(NULL, prefix, test->name, &concat_name);
   /* The array of parameters to pass to
    * munit_test_runner_run_test_with_params */
   MunitParameter* params = NULL;
@@ -1614,7 +1623,7 @@ munit_test_runner_run_test(MunitTestRunner* runner,
          * running a single test, but we don't want every test with
          * the same number of parameters to choose the same parameter
          * number, so use the test name as a primitive salt. */
-        pidx = munit_rand_at_most(munit_str_hash(test_name), possible - 1);
+        pidx = (int)munit_rand_at_most(munit_str_hash(test_name), possible - 1);
         if (MUNIT_UNLIKELY(munit_parameters_add(&params_l, &params, pe->name, pe->values[pidx]) != MUNIT_OK))
           goto cleanup;
       } else {
@@ -1646,7 +1655,8 @@ munit_test_runner_run_test(MunitTestRunner* runner,
     free(wild_params);
   }
 
-  munit_maybe_free_concat(test_name, prefix, test->name);
+  if (concat_name != NULL)
+    free(concat_name);
 }
 
 /* Recurse through the suite and run all the tests.  If a list of
@@ -1657,7 +1667,8 @@ munit_test_runner_run_suite(MunitTestRunner* runner,
                             const MunitSuite* suite,
                             const char* prefix) {
   size_t pre_l;
-  char* pre = munit_maybe_concat(&pre_l, (char*) prefix, (char*) suite->prefix);
+  char *concat_name = NULL;
+  const char* pre = munit_maybe_concat(&pre_l, prefix, suite->prefix, &concat_name);
   const MunitTest* test;
   const char** test_name;
   const MunitSuite* child_suite;
@@ -1688,7 +1699,8 @@ munit_test_runner_run_suite(MunitTestRunner* runner,
 
  cleanup:
 
-  munit_maybe_free_concat(pre, prefix, suite->prefix);
+  if (concat_name != NULL)
+    free(concat_name);
 }
 
 static void
@@ -1763,7 +1775,8 @@ munit_arguments_find(const MunitArgument arguments[], const char* name) {
 static void
 munit_suite_list_tests(const MunitSuite* suite, munit_bool show_params, const char* prefix) {
   size_t pre_l;
-  char* pre = munit_maybe_concat(&pre_l, (char*) prefix, (char*) suite->prefix);
+  char *concat_name = NULL;
+  const char* pre = munit_maybe_concat(&pre_l, prefix, suite->prefix, &concat_name);
   const MunitTest* test;
   const MunitParameterEnum* params;
   munit_bool first;
@@ -1806,7 +1819,8 @@ munit_suite_list_tests(const MunitSuite* suite, munit_bool show_params, const ch
     munit_suite_list_tests(child_suite, show_params, pre);
   }
 
-  munit_maybe_free_concat(pre, prefix, suite->prefix);
+  if (concat_name != NULL)
+    free(concat_name);
 }
 
 static munit_bool
