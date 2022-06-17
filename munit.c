@@ -1010,7 +1010,7 @@ munit_rand_int_range(int min, int max) {
   if (range > (~((munit_uint32_t) 0U)))
     range = (~((munit_uint32_t) 0U));
 
-  return min + munit_rand_at_most(0, (munit_uint32_t) range);
+  return min + (int)munit_rand_at_most(0, (munit_uint32_t) range);
 }
 
 double
@@ -1133,7 +1133,7 @@ munit_str_hash(const char* name) {
   munit_uint32_t h = 5381U;
 
   for (p = name; *p != '\0'; p++)
-    h = (h << 5) + h + *p;
+    h = (h << 5) + h + (unsigned char)*p;
 
   return h;
 }
@@ -1155,7 +1155,7 @@ munit_splice(int from, int to) {
     if (len > 0) {
       bytes_written = 0;
       do {
-        write_res = write(to, buf + bytes_written, len - bytes_written);
+        write_res = write(to, buf + bytes_written, (size_t)(len - bytes_written));
         if (write_res < 0)
           break;
         bytes_written += write_res;
@@ -1294,6 +1294,7 @@ munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest*
   const MunitParameter* param;
   FILE* stderr_buf;
   volatile int orig_stderr;
+  int fprint_res;
 #if !defined(MUNIT_NO_FORK)
   int pipefd[2];
   pid_t fork_pid;
@@ -1317,7 +1318,8 @@ munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest*
         first = 0;
       }
 
-      output_l += fprintf(MUNIT_OUTPUT_FILE, "%s=%s", param->name, param->value);
+      fprint_res = fprintf(MUNIT_OUTPUT_FILE, "%s=%s", param->name, param->value);
+      output_l +=  (unsigned int)(fprint_res >= 0 ? fprint_res : 0);
     }
     while (output_l++ < MUNIT_TEST_NAME_LEN) {
       fputc(' ', MUNIT_OUTPUT_FILE);
@@ -1361,7 +1363,7 @@ munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest*
       close(orig_stderr);
 
       do {
-        write_res = write(pipefd[1], ((munit_uint8_t*) (&report)) + bytes_written, sizeof(report) - bytes_written);
+        write_res = write(pipefd[1], ((munit_uint8_t*) (&report)) + bytes_written, sizeof(report) - (size_t)bytes_written);
         if (write_res < 0) {
           if (stderr_buf != NULL) {
             munit_log_errno(MUNIT_LOG_ERROR, stderr, "unable to write to pipe");
@@ -1387,7 +1389,7 @@ munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest*
     } else {
       close(pipefd[1]);
       do {
-        read_res = read(pipefd[0], ((munit_uint8_t*) (&report)) + bytes_read, sizeof(report) - bytes_read);
+        read_res = read(pipefd[0], ((munit_uint8_t*) (&report)) + bytes_read, sizeof(report) - (size_t)bytes_read);
         if (read_res < 1)
           break;
         bytes_read += read_res;
@@ -1615,7 +1617,7 @@ munit_test_runner_run_test(MunitTestRunner* runner,
          * running a single test, but we don't want every test with
          * the same number of parameters to choose the same parameter
          * number, so use the test name as a primitive salt. */
-        pidx = munit_rand_at_most(munit_str_hash(test_name), possible - 1);
+        pidx = (int)munit_rand_at_most(munit_str_hash(test_name), possible - 1);
         if (MUNIT_UNLIKELY(munit_parameters_add(&params_l, &params, pe->name, pe->values[pidx]) != MUNIT_OK))
           goto cleanup;
       } else {

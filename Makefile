@@ -32,7 +32,7 @@ endif
 ifneq ($(CC),pgcc)
         ifeq ($(EXTRA_WARNINGS),y)
                 CFLAGS+=-Wall -Wextra -Werror -Wshadow -Wcast-qual \
-                        -Wswitch-default
+                        -Wswitch-default -Wsign-conversion
         endif
 
         ifeq ($(ASAN),y)
