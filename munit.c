@@ -259,7 +259,13 @@ munit_log_errno(MunitLogLevel level, FILE* fp, const char* msg) {
   munit_error_str[0] = '\0';
 
 #if !defined(_WIN32)
+#if defined(_POSIX_C_SOURCE) && (_POSIX_C_SOURCE >= 200112L) && !defined(_GNU_SOURCE)
   strerror_r(errno, munit_error_str, MUNIT_STRERROR_LEN);
+#else
+  char *s = strerror_r(errno, munit_error_str, MUNIT_STRERROR_LEN);
+  munit_logf_internal(level, fp, "%s: %s (%d)", msg, s, errno);
+  return ;
+#endif
 #else
   strerror_s(munit_error_str, MUNIT_STRERROR_LEN, errno);
 #endif
