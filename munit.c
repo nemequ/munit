@@ -723,9 +723,11 @@ psnip_clock_get_precision (enum PsnipClockType clock_type) {
       return psnip_clock_cpu_get_precision ();
     case PSNIP_CLOCK_TYPE_WALL:
       return psnip_clock_wall_get_precision ();
+    default:
+      PSNIP_CLOCK_UNREACHABLE();
+      break;
   }
 
-  PSNIP_CLOCK_UNREACHABLE();
   return 0;
 }
 
@@ -742,6 +744,8 @@ psnip_clock_get_time (enum PsnipClockType clock_type, struct PsnipClockTimespec*
       return psnip_clock_cpu_get_time (res);
     case PSNIP_CLOCK_TYPE_WALL:
       return psnip_clock_wall_get_time (res);
+    default:
+      return -1;
   }
 
   return -1;
