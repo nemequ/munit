@@ -1293,10 +1293,10 @@ munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest*
   munit_bool first;
   const MunitParameter* param;
   FILE* stderr_buf;
+  volatile int orig_stderr;
 #if !defined(MUNIT_NO_FORK)
   int pipefd[2];
   pid_t fork_pid;
-  int orig_stderr;
   ssize_t bytes_written = 0;
   ssize_t write_res;
   ssize_t bytes_read = 0;
@@ -1423,7 +1423,7 @@ munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest*
 #endif
   {
 #if !defined(MUNIT_NO_BUFFER)
-    const volatile int orig_stderr = munit_replace_stderr(stderr_buf);
+    orig_stderr = munit_replace_stderr(stderr_buf);
 #endif
 
 #if defined(MUNIT_THREAD_LOCAL)
