@@ -581,8 +581,8 @@ psnip_clock_wall_get_time (struct PsnipClockTimespec* res) {
   if (gettimeofday(&tv, NULL) != 0)
     return -6;
 
-  res->seconds = tv.tv_sec;
-  res->nanoseconds = tv.tv_usec * 1000;
+  res->seconds = (psnip_uint64_t) tv.tv_sec;
+  res->nanoseconds = (psnip_uint64_t) (tv.tv_usec * 1000);
 #else
   return -2;
 #endif
