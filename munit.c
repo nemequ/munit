@@ -532,7 +532,7 @@ psnip_clock__clock_getres (clockid_t clk_id) {
   if (r != 0)
     return 0;
 
-  return (psnip_uint32_t) (PSNIP_CLOCK_NSEC_PER_SEC / res.tv_nsec);
+  return (psnip_uint32_t) (PSNIP_CLOCK_NSEC_PER_SEC / (psnip_uint32_t) res.tv_nsec);
 }
 
 PSNIP_CLOCK__FUNCTION int
@@ -626,13 +626,13 @@ psnip_clock_cpu_get_time (struct PsnipClockTimespec* res) {
     return -7;
 
   /* http://www.frenk.com/2009/12/convert-filetime-to-unix-timestamp/ */
-  date.HighPart = UserTime.dwHighDateTime;
-  date.LowPart = UserTime.dwLowDateTime;
+  date.HighPart = (LONG) UserTime.dwHighDateTime;
+  date.LowPart = (DWORD) UserTime.dwLowDateTime;
   adjust.QuadPart = 11644473600000 * 10000;
   date.QuadPart -= adjust.QuadPart;
 
-  res->seconds = date.QuadPart / 10000000;
-  res->nanoseconds = (date.QuadPart % 10000000) * (PSNIP_CLOCK_NSEC_PER_SEC / 100);
+  res->seconds = (psnip_uint64_t) date.QuadPart / 10000000;
+  res->nanoseconds = (psnip_uint64_t) (date.QuadPart % 10000000) * (PSNIP_CLOCK_NSEC_PER_SEC / 100);
 #elif PSNIP_CLOCK_CPU_METHOD == PSNIP_CLOCK_METHOD_GETRUSAGE
   struct rusage usage;
   if (getrusage(RUSAGE_SELF, &usage) != 0)
@@ -691,12 +691,12 @@ psnip_clock_monotonic_get_time (struct PsnipClockTimespec* res) {
     return -12;
 
   QueryPerformanceFrequency(&f);
-  res->seconds = t.QuadPart / f.QuadPart;
-  res->nanoseconds = t.QuadPart % f.QuadPart;
+  res->seconds =   (psnip_uint64_t) t.QuadPart / (psnip_uint64_t) f.QuadPart;
+  res->nanoseconds = (psnip_uint64_t) t.QuadPart % (psnip_uint64_t) f.QuadPart;
   if (f.QuadPart > PSNIP_CLOCK_NSEC_PER_SEC)
-    res->nanoseconds /= f.QuadPart / PSNIP_CLOCK_NSEC_PER_SEC;
+    res->nanoseconds /= ((psnip_uint64_t) f.QuadPart / PSNIP_CLOCK_NSEC_PER_SEC);
   else
-    res->nanoseconds *= PSNIP_CLOCK_NSEC_PER_SEC / f.QuadPart;
+    res->nanoseconds *= (PSNIP_CLOCK_NSEC_PER_SEC / (psnip_uint64_t) f.QuadPart);
 #elif defined(PSNIP_CLOCK_MONOTONIC_METHOD) && PSNIP_CLOCK_MONOTONIC_METHOD == PSNIP_CLOCK_METHOD_GETTICKCOUNT64
   const ULONGLONG msec = GetTickCount64();
   res->seconds = msec / 1000;
@@ -938,7 +938,7 @@ munit_rand_uint32(void) {
   munit_uint32_t old, state;
 
   do {
-    old = munit_atomic_load(&munit_rand_state);
+    old = (munit_uint32_t) munit_atomic_load(&munit_rand_state);
     state = munit_rand_next_state(old);
   } while (!munit_atomic_cas(&munit_rand_state, &old, state));
 
@@ -967,7 +967,7 @@ munit_rand_memory(size_t size, munit_uint8_t data[MUNIT_ARRAY_PARAM(size)]) {
   munit_uint32_t old, state;
 
   do {
-    state = old = munit_atomic_load(&munit_rand_state);
+    state = old = (munit_uint32_t) munit_atomic_load(&munit_rand_state);
     munit_rand_state_memory(&state, size, data);
   } while (!munit_atomic_cas(&munit_rand_state, &old, state));
 }
@@ -999,7 +999,7 @@ munit_rand_at_most(munit_uint32_t salt, munit_uint32_t max) {
   munit_uint32_t retval;
 
   do {
-    state = old = munit_atomic_load(&munit_rand_state);
+    state = old = (munit_uint32_t) munit_atomic_load(&munit_rand_state);
     retval = munit_rand_state_at_most(&state, salt, max);
   } while (!munit_atomic_cas(&munit_rand_state, &old, state));
 
@@ -1025,7 +1025,7 @@ munit_rand_double(void) {
   double retval = 0.0;
 
   do {
-    state = old = munit_atomic_load(&munit_rand_state);
+    state = old = (munit_uint32_t) munit_atomic_load(&munit_rand_state);
 
     /* See http://mumble.net/~campbell/tmp/random_real.c for how to do
      * this right.  Patches welcome if you feel that this is too
@@ -1161,7 +1161,7 @@ munit_splice(int from, int to) {
     if (len > 0) {
       bytes_written = 0;
       do {
-        write_res = write(to, buf + bytes_written, (size_t)(len - bytes_written));
+        write_res = write(to, buf + bytes_written, (size_t) len - (size_t) bytes_written);
         if (write_res < 0)
           break;
         bytes_written += write_res;
