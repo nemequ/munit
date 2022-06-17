@@ -31,7 +31,7 @@ endif
 
 ifneq ($(CC),pgcc)
         ifeq ($(EXTRA_WARNINGS),y)
-                CFLAGS+=-Wall -Wextra -Werror -Wshadow
+                CFLAGS+=-Wall -Wextra -Werror -Wshadow -Wcast-qual
         endif
 
         ifeq ($(ASAN),y)
