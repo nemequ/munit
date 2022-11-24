@@ -1327,7 +1327,11 @@ munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest*
   fflush(MUNIT_OUTPUT_FILE);
 
   stderr_buf = NULL;
-#if !defined(_WIN32) || defined(__MINGW32__)
+#if defined(_WIN32)
+  char filename[MAX_PATH];
+  GetTempFileName(".", "munit-temp", 0, filename);
+  stderr_buf = fopen(filename, "w");
+#elif !defined(_WIN32) || defined(__MINGW32__)
   stderr_buf = tmpfile();
 #else
   tmpfile_s(&stderr_buf);
