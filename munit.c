@@ -129,7 +129,7 @@
 #endif
 
 /* MSVC 12.0 will emit a warning at /W4 for code like 'do { ... }
- * while (0)', or 'do { ... } while (true)'.  I'm pretty sure nobody
+ * while (0)', or 'do { ... } while (1)'.  I'm pretty sure nobody
  * at Microsoft compiles with /W4. */
 #if defined(_MSC_VER) && (_MSC_VER <= 1800)
 #pragma warning(disable: 4127)
@@ -149,7 +149,7 @@ static MunitLogLevel munit_log_level_visible = MUNIT_LOG_INFO;
 static MunitLogLevel munit_log_level_fatal = MUNIT_LOG_ERROR;
 
 #if defined(MUNIT_THREAD_LOCAL)
-static MUNIT_THREAD_LOCAL bool munit_error_jmp_buf_valid = false;
+static MUNIT_THREAD_LOCAL munit_bool munit_error_jmp_buf_valid = 0;
 static MUNIT_THREAD_LOCAL jmp_buf munit_error_jmp_buf;
 #endif
 
@@ -840,15 +840,15 @@ munit_atomic_load(ATOMIC_UINT32_T* src) {
 
 static inline uint32_t
 munit_atomic_cas(ATOMIC_UINT32_T* dest, ATOMIC_UINT32_T* expected, ATOMIC_UINT32_T desired) {
-  bool ret;
+  munit_bool ret;
 
 #pragma omp critical (munit_atomics)
   {
     if (*dest == *expected) {
       *dest = desired;
-      ret = true;
+      ret = 1;
     } else {
-      ret = false;
+      ret = 0;
     }
   }
 
@@ -865,7 +865,7 @@ munit_atomic_cas(ATOMIC_UINT32_T* dest, ATOMIC_UINT32_T* expected, ATOMIC_UINT32
 #elif defined(__GNUC__) && (__GNUC__ > 4) || (__GNUC__ == 4 && __GNUC_MINOR__ >= 7)
 #  define munit_atomic_store(dest, value)         __atomic_store_n(dest, value, __ATOMIC_SEQ_CST)
 #  define munit_atomic_load(src)                  __atomic_load_n(src, __ATOMIC_SEQ_CST)
-#  define munit_atomic_cas(dest, expected, value) __atomic_compare_exchange_n(dest, expected, value, true, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST)
+#  define munit_atomic_cas(dest, expected, value) __atomic_compare_exchange_n(dest, expected, value, 1, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST)
 #elif defined(__GNUC__) && (__GNUC__ >= 4)
 #  define munit_atomic_store(dest,value)          do { *(dest) = (value); } while (0)
 #  define munit_atomic_load(src)                  (*(src))
@@ -878,13 +878,13 @@ munit_atomic_cas(ATOMIC_UINT32_T* dest, ATOMIC_UINT32_T* expected, ATOMIC_UINT32
 #  warning No atomic implementation, PRNG will not be thread-safe
 #  define munit_atomic_store(dest, value)         do { *(dest) = (value); } while (0)
 #  define munit_atomic_load(src)                  (*(src))
-static inline bool
+static inline munit_bool
 munit_atomic_cas(ATOMIC_UINT32_T* dest, ATOMIC_UINT32_T* expected, ATOMIC_UINT32_T desired) {
   if (*dest == *expected) {
     *dest = desired;
-    return true;
+    return 1;
   } else {
-    return false;
+    return 0;
   }
 }
 #endif
@@ -1056,13 +1056,13 @@ typedef struct {
   munit_uint32_t seed;
   unsigned int iterations;
   MunitParameter* parameters;
-  bool single_parameter_mode;
+  munit_bool single_parameter_mode;
   void* user_data;
   MunitReport report;
-  bool colorize;
-  bool fork;
-  bool show_stderr;
-  bool fatal_failures;
+  munit_bool colorize;
+  munit_bool fork;
+  munit_bool show_stderr;
+  munit_bool fatal_failures;
 } MunitTestRunner;
 
 const char*
@@ -1173,7 +1173,7 @@ munit_splice(int from, int to) {
     }
     else
       break;
-  } while (true);
+  } while (1);
 }
 
 /* This is the part that should be handled in the child process */
@@ -1316,7 +1316,7 @@ munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest*
 #endif
   };
   unsigned int output_l;
-  bool first;
+  munit_bool first;
   const MunitParameter* param;
   FILE* stderr_buf;
 #if !defined(MUNIT_NO_FORK)
@@ -1334,13 +1334,13 @@ munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest*
   if (params != NULL) {
     output_l = 2;
     fputs("  ", MUNIT_OUTPUT_FILE);
-    first = true;
+    first = 1;
     for (param = params ; param != NULL && param->name != NULL ; param++) {
       if (!first) {
         fputs(", ", MUNIT_OUTPUT_FILE);
         output_l += 2;
       } else {
-        first = false;
+        first = 0;
       }
 
       output_l += fprintf(MUNIT_OUTPUT_FILE, "%s=%s", param->name, param->value);
@@ -1457,7 +1457,7 @@ munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest*
       result = MUNIT_FAIL;
       report.failed++;
     } else {
-      munit_error_jmp_buf_valid = true;
+      munit_error_jmp_buf_valid = 1;
       result = munit_test_runner_exec(runner, test, params, &report);
     }
 #else
@@ -1594,7 +1594,7 @@ munit_test_runner_run_test(MunitTestRunner* runner,
   size_t wild_params_l = 0;
   const MunitParameterEnum* pe;
   const MunitParameter* cli_p;
-  bool filled;
+  munit_bool filled;
   unsigned int possible;
   char** vals;
   size_t first_wild;
@@ -1613,12 +1613,12 @@ munit_test_runner_run_test(MunitTestRunner* runner,
 
     for (pe = test->parameters ; pe != NULL && pe->name != NULL ; pe++) {
       /* Did we received a value for this parameter from the CLI? */
-      filled = false;
+      filled = 0;
       for (cli_p = runner->parameters ; cli_p != NULL && cli_p->name != NULL ; cli_p++) {
         if (strcmp(cli_p->name, pe->name) == 0) {
           if (MUNIT_UNLIKELY(munit_parameters_add(&params_l, &params, pe->name, cli_p->value) != MUNIT_OK))
             goto cleanup;
-          filled = true;
+          filled = 1;
           break;
         }
       }
@@ -1787,12 +1787,12 @@ munit_arguments_find(const MunitArgument arguments[], const char* name) {
 }
 
 static void
-munit_suite_list_tests(const MunitSuite* suite, bool show_params, const char* prefix) {
+munit_suite_list_tests(const MunitSuite* suite, munit_bool show_params, const char* prefix) {
   size_t pre_l;
   char* pre = munit_maybe_concat(&pre_l, (char*) prefix, (char*) suite->prefix);
   const MunitTest* test;
   const MunitParameterEnum* params;
-  bool first;
+  munit_bool first;
   char** val;
   const MunitSuite* child_suite;
 
@@ -1811,14 +1811,14 @@ munit_suite_list_tests(const MunitSuite* suite, bool show_params, const char* pr
         if (params->values == NULL) {
           puts("Any");
         } else {
-          first = true;
+          first = 1;
           for (val = params->values ;
                *val != NULL ;
                val++ ) {
             if(!first) {
               fputs(", ", stdout);
             } else {
-              first = false;
+              first = 0;
             }
             fputs(*val, stdout);
           }
@@ -1835,7 +1835,7 @@ munit_suite_list_tests(const MunitSuite* suite, bool show_params, const char* pr
   munit_maybe_free_concat(pre, prefix, suite->prefix);
 }
 
-static bool
+static munit_bool
 munit_stream_supports_ansi(FILE *stream) {
 #if !defined(_WIN32)
   return isatty(fileno(stream));
@@ -1853,7 +1853,7 @@ munit_stream_supports_ansi(FILE *stream) {
     return getenv("ANSICON") != NULL;
 #endif
   }
-  return false;
+  return 0;
 #endif
 }
 
@@ -1883,7 +1883,7 @@ munit_suite_main_custom(const MunitSuite* suite, void* user_data,
   runner.seed = 0;
   runner.iterations = 0;
   runner.parameters = NULL;
-  runner.single_parameter_mode = false;
+  runner.single_parameter_mode = 0;
   runner.user_data = NULL;
 
   runner.report.successful = 0;
@@ -1895,14 +1895,14 @@ munit_suite_main_custom(const MunitSuite* suite, void* user_data,
   runner.report.wall_clock = 0;
 #endif
 
-  runner.colorize = false;
+  runner.colorize = 0;
 #if !defined(_WIN32)
-  runner.fork = true;
+  runner.fork = 1;
 #else
-  runner.fork = false;
+  runner.fork = 0;
 #endif
-  runner.show_stderr = false;
-  runner.fatal_failures = false;
+  runner.show_stderr = 0;
+  runner.fatal_failures = 0;
   runner.suite = suite;
   runner.user_data = user_data;
   runner.seed = munit_rand_generate_seed();
@@ -1965,9 +1965,9 @@ munit_suite_main_custom(const MunitSuite* suite, void* user_data,
         }
 
         if (strcmp(argv[arg + 1], "always") == 0)
-          runner.colorize = true;
+          runner.colorize = 1;
         else if (strcmp(argv[arg + 1], "never") == 0)
-          runner.colorize = false;
+          runner.colorize = 0;
         else if (strcmp(argv[arg + 1], "auto") == 0)
           runner.colorize = munit_stream_supports_ansi(MUNIT_OUTPUT_FILE);
         else {
@@ -1981,15 +1981,15 @@ munit_suite_main_custom(const MunitSuite* suite, void* user_data,
         result = EXIT_SUCCESS;
         goto cleanup;
       } else if (strcmp("single", argv[arg] + 2) == 0) {
-        runner.single_parameter_mode = true;
+        runner.single_parameter_mode = 1;
       } else if (strcmp("show-stderr", argv[arg] + 2) == 0) {
-        runner.show_stderr = true;
+        runner.show_stderr = 1;
 #if !defined(_WIN32)
       } else if (strcmp("no-fork", argv[arg] + 2) == 0) {
-        runner.fork = false;
+        runner.fork = 0;
 #endif
       } else if (strcmp("fatal-failures", argv[arg] + 2) == 0) {
-        runner.fatal_failures = true;
+        runner.fatal_failures = 1;
       } else if (strcmp("log-visible", argv[arg] + 2) == 0 ||
                  strcmp("log-fatal", argv[arg] + 2) == 0) {
         if (arg + 1 >= argc) {
@@ -2017,11 +2017,11 @@ munit_suite_main_custom(const MunitSuite* suite, void* user_data,
 
         arg++;
       } else if (strcmp("list", argv[arg] + 2) == 0) {
-        munit_suite_list_tests(suite, false, NULL);
+        munit_suite_list_tests(suite, 0, NULL);
         result = EXIT_SUCCESS;
         goto cleanup;
       } else if (strcmp("list-params", argv[arg] + 2) == 0) {
-        munit_suite_list_tests(suite, true, NULL);
+        munit_suite_list_tests(suite, 1, NULL);
         result = EXIT_SUCCESS;
         goto cleanup;
       } else {

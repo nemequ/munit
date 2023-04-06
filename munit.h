@@ -103,18 +103,18 @@
 #  if !defined(PRIu64)
 #    define PRIu64 "I64u"
 #  endif
-#  if !defined(bool)
-#    define bool int
-#  endif
-#  if !defined(true)
-#    define true (!0)
-#  endif
-#  if !defined(false)
-#    define false (!!0)
-#  endif
 #else
 #  include <inttypes.h>
-#  include <stdbool.h>
+#endif
+
+#if !defined(munit_bool)
+#  if defined(bool)
+#    define munit_bool bool
+#  elif defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L)
+#    define munit_bool _Bool
+#  else
+#    define munit_bool int
+#  endif
 #endif
 
 #if defined(__cplusplus)
@@ -162,11 +162,11 @@ extern "C" {
 #endif
 
 #if defined(_MSC_VER) &&  (_MSC_VER >= 1500)
-#  define MUNIT__PUSH_DISABLE_MSVC_C4127 __pragma(warning(push)) __pragma(warning(disable:4127))
-#  define MUNIT__POP_DISABLE_MSVC_C4127 __pragma(warning(pop))
+#  define MUNIT_PUSH_DISABLE_MSVC_C4127_ __pragma(warning(push)) __pragma(warning(disable:4127))
+#  define MUNIT_POP_DISABLE_MSVC_C4127_ __pragma(warning(pop))
 #else
-#  define MUNIT__PUSH_DISABLE_MSVC_C4127
-#  define MUNIT__POP_DISABLE_MSVC_C4127
+#  define MUNIT_PUSH_DISABLE_MSVC_C4127_
+#  define MUNIT_POP_DISABLE_MSVC_C4127_
 #endif
 
 typedef enum {
@@ -206,27 +206,27 @@ void munit_errorf_ex(const char* filename, int line, const char* format, ...);
     if (!MUNIT_LIKELY(expr)) { \
       munit_error("assertion failed: " #expr); \
     } \
-    MUNIT__PUSH_DISABLE_MSVC_C4127 \
+    MUNIT_PUSH_DISABLE_MSVC_C4127_ \
   } while (0) \
-  MUNIT__POP_DISABLE_MSVC_C4127
+  MUNIT_POP_DISABLE_MSVC_C4127_
 
 #define munit_assert_true(expr) \
   do { \
     if (!MUNIT_LIKELY(expr)) { \
       munit_error("assertion failed: " #expr " is not true"); \
     } \
-    MUNIT__PUSH_DISABLE_MSVC_C4127 \
+    MUNIT_PUSH_DISABLE_MSVC_C4127_ \
   } while (0) \
-  MUNIT__POP_DISABLE_MSVC_C4127
+  MUNIT_POP_DISABLE_MSVC_C4127_
 
 #define munit_assert_false(expr) \
   do { \
     if (!MUNIT_LIKELY(!(expr))) { \
       munit_error("assertion failed: " #expr " is not false"); \
     } \
-    MUNIT__PUSH_DISABLE_MSVC_C4127 \
+    MUNIT_PUSH_DISABLE_MSVC_C4127_ \
   } while (0) \
-  MUNIT__POP_DISABLE_MSVC_C4127
+  MUNIT_POP_DISABLE_MSVC_C4127_
 
 #define munit_assert_type_full(prefix, suffix, T, fmt, a, op, b)   \
   do { \
@@ -236,9 +236,9 @@ void munit_errorf_ex(const char* filename, int line, const char* format, ...);
       munit_errorf("assertion failed: %s %s %s (" prefix "%" fmt suffix " %s " prefix "%" fmt suffix ")", \
                    #a, #op, #b, munit_tmp_a_, #op, munit_tmp_b_); \
     } \
-    MUNIT__PUSH_DISABLE_MSVC_C4127 \
+    MUNIT_PUSH_DISABLE_MSVC_C4127_ \
   } while (0) \
-  MUNIT__POP_DISABLE_MSVC_C4127
+  MUNIT_POP_DISABLE_MSVC_C4127_
 
 #define munit_assert_type(T, fmt, a, op, b) \
   munit_assert_type_full("", "", T, fmt, a, op, b)
@@ -302,9 +302,9 @@ void munit_errorf_ex(const char* filename, int line, const char* format, ...);
       munit_errorf("assertion failed: %s == %s (%0." #precision "g == %0." #precision "g)", \
 		   #a, #b, munit_tmp_a_, munit_tmp_b_); \
     } \
-    MUNIT__PUSH_DISABLE_MSVC_C4127 \
+    MUNIT_PUSH_DISABLE_MSVC_C4127_ \
   } while (0) \
-  MUNIT__POP_DISABLE_MSVC_C4127
+  MUNIT_POP_DISABLE_MSVC_C4127_
 
 #include <string.h>
 #define munit_assert_string_equal(a, b) \
@@ -315,9 +315,9 @@ void munit_errorf_ex(const char* filename, int line, const char* format, ...);
       munit_errorf("assertion failed: string %s == %s (\"%s\" == \"%s\")", \
                    #a, #b, munit_tmp_a_, munit_tmp_b_); \
     } \
-    MUNIT__PUSH_DISABLE_MSVC_C4127 \
+    MUNIT_PUSH_DISABLE_MSVC_C4127_ \
   } while (0) \
-  MUNIT__POP_DISABLE_MSVC_C4127
+  MUNIT_POP_DISABLE_MSVC_C4127_
 
 #define munit_assert_string_not_equal(a, b) \
   do { \
@@ -327,9 +327,9 @@ void munit_errorf_ex(const char* filename, int line, const char* format, ...);
       munit_errorf("assertion failed: string %s != %s (\"%s\" == \"%s\")", \
                    #a, #b, munit_tmp_a_, munit_tmp_b_); \
     } \
-    MUNIT__PUSH_DISABLE_MSVC_C4127 \
+    MUNIT_PUSH_DISABLE_MSVC_C4127_ \
   } while (0) \
-  MUNIT__POP_DISABLE_MSVC_C4127
+  MUNIT_POP_DISABLE_MSVC_C4127_
 
 #define munit_assert_memory_equal(size, a, b) \
   do { \
@@ -346,9 +346,9 @@ void munit_errorf_ex(const char* filename, int line, const char* format, ...);
         } \
       } \
     } \
-    MUNIT__PUSH_DISABLE_MSVC_C4127 \
+    MUNIT_PUSH_DISABLE_MSVC_C4127_ \
   } while (0) \
-  MUNIT__POP_DISABLE_MSVC_C4127
+  MUNIT_POP_DISABLE_MSVC_C4127_
 
 #define munit_assert_memory_not_equal(size, a, b) \
   do { \
@@ -359,9 +359,9 @@ void munit_errorf_ex(const char* filename, int line, const char* format, ...);
       munit_errorf("assertion failed: memory %s != %s (%zu bytes)", \
                    #a, #b, munit_tmp_size_); \
     } \
-    MUNIT__PUSH_DISABLE_MSVC_C4127 \
+    MUNIT_PUSH_DISABLE_MSVC_C4127_ \
   } while (0) \
-  MUNIT__POP_DISABLE_MSVC_C4127
+  MUNIT_POP_DISABLE_MSVC_C4127_
 
 #define munit_assert_ptr_equal(a, b) \
   munit_assert_ptr(a, ==, b)
@@ -469,7 +469,7 @@ typedef struct MunitArgument_ MunitArgument;
 
 struct MunitArgument_ {
   char* name;
-  bool (* parse_argument)(const MunitSuite* suite, void* user_data, int* arg, int argc, char* const argv[MUNIT_ARRAY_PARAM(argc + 1)]);
+  munit_bool (* parse_argument)(const MunitSuite* suite, void* user_data, int* arg, int argc, char* const argv[MUNIT_ARRAY_PARAM(argc + 1)]);
   void (* write_help)(const MunitArgument* argument, void* user_data);
 };
 
