@@ -31,8 +31,7 @@ set_target_properties (munit
                         C_EXTENSIONS OFF)
 
 configure_file (cmake/munit.pc.in
-                ${CMAKE_BINARY_DIR}/lib/pkgconfig/munit.pc
-                @ONLY)
+                ${CMAKE_BINARY_DIR}/lib/pkgconfig/munit.pc)
 
 if (BUILD_EXAMPLE)
   add_executable (munit_example)
