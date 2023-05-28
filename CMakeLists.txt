@@ -33,7 +33,7 @@ set_target_properties (munit
 configure_file (cmake/munit.pc.in
                 ${CMAKE_BINARY_DIR}/lib/pkgconfig/munit.pc)
 
-if (BUILD_EXAMPLE)
+if (BUILD_TESTS)
   add_executable (munit_example)
 
   target_sources (munit_example
