@@ -15,7 +15,7 @@ add_library (munit munit.c)
 include(GNUInstallDirs)
 
 target_include_directories (munit
-  INTERFACE
+  PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
 
@@ -24,8 +24,8 @@ set_target_properties (munit
     C_STANDARD 99
     C_EXTENSIONS OFF
     C_STANDARD_REQUIRED ON
-    PUBLIC_HEADER "munit.h"
-    DEBUG_POSTFIX "d")
+    DEBUG_POSTFIX "d"
+    RELWITHDEBINFO_POSTFIX "rd")
 
 target_link_libraries (munit
   PUBLIC
@@ -33,18 +33,12 @@ target_link_libraries (munit
 
 install (TARGETS munit
          EXPORT
-           munit
-         PUBLIC_HEADER
-           DESTINATION ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_INCLUDEDIR}
+          munit
+         DESTINATION
+          ${CMAKE_INSTALL_LIBDIR}
          LIBRARY
-           DESTINATION ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}
          CONFIGURATIONS
-          "RELEASE;DEBUG"
-         EXPORT_LINK_INTERFACE_LIBRARIES)
+          "Debug;Release")
 
-export (TARGETS munit
-  NAMESPACE
-    MUnit::
-  FILE
-    FindMunit-Config.cmake
-  EXPORT_LINK_INTERFACE_LIBRARIES)
+install (EXPORT munit DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/munit)
+install (FILES munit.h DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
