@@ -4,3 +4,4 @@
 /example
 /*.exe
 /*.dll
+/[Bb]uild/
