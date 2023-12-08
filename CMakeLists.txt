@@ -24,21 +24,19 @@ set_target_properties (munit
     C_STANDARD 99
     C_EXTENSIONS OFF
     C_STANDARD_REQUIRED ON
-    DEBUG_POSTFIX "d"
-    RELWITHDEBINFO_POSTFIX "rd")
+    DEBUG_POSTFIX "_d"
+    RELWITHDEBINFO_POSTFIX "_rd"
+    MINSIZEREL_POSTFIX "_msr")
 
 target_link_libraries (munit
   PUBLIC
     $<IF:$<TARGET_EXISTS:OpenMP::OpenMP_C>,OpenMP::OpenMP_C,"">)
 
 install (TARGETS munit
-         EXPORT
-          munit
-         DESTINATION
-          ${CMAKE_INSTALL_LIBDIR}
-         LIBRARY
-         CONFIGURATIONS
-          "Debug;Release")
+         EXPORT munit
+         RUNTIME DESTINATION bin
+         LIBRARY DESTINATION lib
+         ARCHIVE DESTINATION lib)
 
-install (EXPORT munit DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/munit)
+install (EXPORT munit DESTINATION share NAMESPACE MUnit::)
 install (FILES munit.h DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
