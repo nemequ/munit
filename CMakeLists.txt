@@ -1,7 +1,5 @@
 cmake_minimum_required (VERSION 3.27)
 
-list(APPEND CMAKE_MODULE_PATH ${CMAKE_BINARY_DIR})
-
 project (munit
   LANGUAGES C
   VERSION 0.2.0
@@ -12,7 +10,8 @@ find_package (OpenMP)
 
 add_library (munit munit.c)
 
-include(GNUInstallDirs)
+include (GNUInstallDirs)
+include (CMakePackageConfigHelpers)
 
 target_include_directories (munit
   PUBLIC
@@ -32,11 +31,32 @@ target_link_libraries (munit
   PUBLIC
     $<IF:$<TARGET_EXISTS:OpenMP::OpenMP_C>,OpenMP::OpenMP_C,"">)
 
-install (TARGETS munit
-         EXPORT munit
-         RUNTIME DESTINATION bin
-         LIBRARY DESTINATION lib
-         ARCHIVE DESTINATION lib)
+install (
+  TARGETS munit
+  EXPORT munit-targets
+  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+  ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+  INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+                      "${CMAKE_INSTALL_INCLUDEDIR}/munit"
+)
 
-install (EXPORT munit DESTINATION share NAMESPACE MUnit::)
+install (
+  EXPORT munit-targets
+  FILE munit-targets.cmake
+  NAMESPACE MUnit::
+  DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/munit"
+)
+
+configure_package_config_file(
+  "cmake/Config.cmake.in"
+  ${PROJECT_BINARY_DIR}/${PROJECT_NAME}-config.cmake
+  INSTALL_DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}"
+)
+
+install(
+  FILES "${PROJECT_BINARY_DIR}/munit-config.cmake"
+  DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/munit"
+)
+
 install (FILES munit.h DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
