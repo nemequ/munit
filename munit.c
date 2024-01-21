@@ -1251,7 +1251,7 @@ munit_test_runner_print_color(const MunitTestRunner* runner, const char* string,
     fputs(string, MUNIT_OUTPUT_FILE);
 }
 
-#if !defined(MUNIT_NO_BUFFER)
+#if !defined(MUNIT_NO_BUFFER) || !defined(MUNIT_NO_FORK)
 static int
 munit_replace_stderr(FILE* stderr_buf) {
   if (stderr_buf != NULL) {
