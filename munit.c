@@ -1334,6 +1334,7 @@ munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest*
 #endif
   if (stderr_buf == NULL) {
     munit_log_errno(MUNIT_LOG_ERROR, stderr, "unable to create buffer for stderr");
+    report.errored++;
     result = MUNIT_ERROR;
     goto print_result;
   }
@@ -1344,6 +1345,7 @@ munit_test_runner_run_test_with_params(MunitTestRunner* runner, const MunitTest*
     pipefd[1] = -1;
     if (pipe(pipefd) != 0) {
       munit_log_errno(MUNIT_LOG_ERROR, stderr, "unable to create pipe");
+      report.errored++;
       result = MUNIT_ERROR;
       goto print_result;
     }
