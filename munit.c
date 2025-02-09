@@ -89,6 +89,7 @@
 #include <limits.h>
 #include <time.h>
 #include <errno.h>
+#include <math.h>
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -2032,9 +2033,9 @@ munit_suite_main_custom(const MunitSuite* suite, void* user_data,
   } else {
     fprintf(MUNIT_OUTPUT_FILE, "%d of %d (%0.0f%%) tests successful, %d (%0.0f%%) test skipped.\n",
             runner.report.successful, tests_run,
-            (((double) runner.report.successful) / ((double) tests_run)) * 100.0,
+            floor((((double) runner.report.successful) / ((double) tests_run)) * 100.0),
             runner.report.skipped,
-            (((double) runner.report.skipped) / ((double) tests_total)) * 100.0);
+            ceil((((double) runner.report.skipped) / ((double) tests_total)) * 100.0));
   }
 
   if (runner.report.failed == 0 && runner.report.errored == 0) {
