@@ -777,11 +777,13 @@ munit_clock_get_elapsed(struct PsnipClockTimespec* start, struct PsnipClockTimes
  * important that it be reproducible, so bug reports have a better
  * chance of being reproducible. */
 
-#if defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 201112L) && !defined(__STDC_NO_ATOMICS__) && !defined(__EMSCRIPTEN__) && (!defined(__GNUC_MINOR__) || (__GNUC__ > 4) || (__GNUC__ == 4 && __GNUC_MINOR__ > 8))
-#  define HAVE_STDATOMIC
-#elif defined(__clang__)
-#  if __has_extension(c_atomic)
-#    define HAVE_CLANG_ATOMICS
+#if __STDC_VERSION__ >= 201112L
+#  if defined(__STDC_VERSION__) && !defined(__STDC_NO_ATOMICS__) && !defined(__EMSCRIPTEN__) && (!defined(__GNUC_MINOR__) || (__GNUC__ > 4) || (__GNUC__ == 4 && __GNUC_MINOR__ > 8))
+#    define HAVE_STDATOMIC
+#  elif defined(__clang__)
+#    if __has_extension(c_atomic)
+#      define HAVE_CLANG_ATOMICS
+#    endif
 #  endif
 #endif
 
